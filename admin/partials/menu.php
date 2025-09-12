@@ -48,9 +48,10 @@ class Menu {
 	 * @param      string    $version    The version of this plugin.
 	 */
 	public function __construct( $plugin_name, $version ) {
-
 		$this->plugin_name = $plugin_name;
 		$this->version     = $version;
+		// Always register settings so they are available for the settings page.
+		add_action( 'admin_init', array( $this, 'register_settings' ) );
 	}
 
 	/**
@@ -69,83 +70,139 @@ class Menu {
 	}
 
 	/**
-	 * About us for the plugins
+	 * Settings page for the plugin using WordPress Settings API
 	 */
 	public function about() {
+		// Settings are now always registered in the constructor.
 		?>
+		<div class="wrap" style="max-width: 700px;">
+			<h1 style="font-size:2.2em; margin-bottom: 0.5em;">AI SDK Chatbot Demo Settings</h1>
+			<form method="post" action="options.php">
+				<?php
+				settings_fields( 'ai_assistant_settings_group' );
+				do_settings_sections( 'ai-assistant-settings' );
+				submit_button( __( 'Save Changes', 'ai-assistant' ) );
+				?>
+			</form>
+		</div>
 		<style>
-			.ai-assistant-container {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				height: 100vh;
-				background-color: #f7f7f7;
-			}
-
-			.ai-assistant-logo img {
-				max-width: 200px;
-				height: auto;
-			}
-
-			.ai-assistant-content {
-				text-align: center;
-				max-width: 600px;
-				margin-top: 20px;
-				padding: 20px;
-				background-color: #fff;
-				border-radius: 10px;
-				box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
-			}
-
-			h2 {
-				color: #0073e6;
-				font-size: 24px;
-			}
-
-			h3 {
-				color: #333;
-				font-size: 20px;
-			}
-
-			ul {
-				list-style-type: disc;
-				padding-left: 20px;
+			.form-table th {
+				width: 180px;
 				text-align: left;
+				font-size: 1.1em;
 			}
-
-			p {
-				font-size: 18px;
+			.form-table input[type="text"],
+			.form-table input[type="password"] {
+				width: 100%;
+				max-width: 400px;
+				font-size: 1em;
+			}
+			.form-table select {
+				min-width: 180px;
+				font-size: 1em;
+			}
+			.form-table td {
+				vertical-align: middle;
+			}
+			.form-table .description {
+				color: #666;
+				font-size: 0.95em;
 			}
 		</style>
-
-		<div class="ai-assistant-container">
-
-			<div class="ai-assistant-content">
-				<h2>Ai Assistant</h2>
-				<p style="text-align: left;">Welcome to WPBoilerplate, your comprehensive starting point for developing WordPress plugins with modern development practices. This boilerplate offers a structured and efficient setup, streamlining the process of creating robust and maintainable WordPress plugins.</p>
-
-				<h3>Key Features:</h3>
-				<ul>
-					<li><strong>Modular Structure:</strong> Organized codebase that promotes clean, readable, and maintainable project architecture.</li>
-
-					<li><strong>Modern Development Tools:</strong> Integrates wp-script to enhance your workflow and automate tasks.</li>
-
-					<li><strong>Best Practices:</strong> Follows WordPress coding standards and best practices to ensure high-quality code.</li>
-
-					<li><strong>Customization Ready:</strong> Easily customizable to fit the specific needs of your plugin development projects.</li>
-
-					<li><strong>Plugin Update Checker:</strong> Built-in functionality to manage and check for plugin updates, ensuring your plugins stay current.</li>
-				</ul>
-
-				<h3>Documentation</h3>
-				<p>Comprehensive documentation is available to guide you through the setup process, customization options, and deployment procedures. Whether you're a seasoned developer or new to WordPress plugin development, our documentation is designed to make your development experience as smooth as possible.</p>
-
-				<h3>Contributions</h3>
-				<p>We welcome contributions from the community. Feel free to fork the repository, create issues, or submit pull requests to help us improve WPBoilerplate.</p>
-			</div>
-		</div>
 		<?php
+	}
+
+	/**
+	 * Register plugin settings and fields
+	 */
+	public function register_settings() {
+		register_setting( 'ai_assistant_settings_group', 'ai_assistant_anthropic_key' );
+		register_setting( 'ai_assistant_settings_group', 'ai_assistant_google_key' );
+		register_setting( 'ai_assistant_settings_group', 'ai_assistant_openai_key' );
+		register_setting( 'ai_assistant_settings_group', 'ai_assistant_current_provider' );
+
+		add_settings_section(
+			'ai_assistant_credentials_section',
+			__( 'Credentials', 'ai-assistant' ),
+			function () {
+				echo '<p>Paste your API credentials for the different providers you would like to use here.</p>';
+			},
+			'ai-assistant-settings'
+		);
+
+		add_settings_field(
+			'ai_assistant_anthropic_key',
+			__( 'Anthropic', 'ai-assistant' ),
+			function () {
+				$value = esc_attr( get_option( 'ai_assistant_anthropic_key', '' ) );
+				echo '<input type="password" name="ai_assistant_anthropic_key" value="' . $value . '" autocomplete="off" />';
+			},
+			'ai-assistant-settings',
+			'ai_assistant_credentials_section'
+		);
+
+		add_settings_field(
+			'ai_assistant_google_key',
+			__( 'Google', 'ai-assistant' ),
+			function () {
+				$value = esc_attr( get_option( 'ai_assistant_google_key', '' ) );
+				echo '<input type="password" name="ai_assistant_google_key" value="' . $value . '" autocomplete="off" />';
+			},
+			'ai-assistant-settings',
+			'ai_assistant_credentials_section'
+		);
+
+		add_settings_field(
+			'ai_assistant_openai_key',
+			__( 'OpenAI', 'ai-assistant' ),
+			function () {
+				$value = esc_attr( get_option( 'ai_assistant_openai_key', '' ) );
+				echo '<input type="password" name="ai_assistant_openai_key" value="' . $value . '" autocomplete="off" />';
+			},
+			'ai-assistant-settings',
+			'ai_assistant_credentials_section'
+		);
+
+		add_settings_section(
+			'ai_assistant_provider_section',
+			__( 'Provider Preferences', 'ai-assistant' ),
+			function () {
+				echo '<p>Choose the provider you would like to use for the chatbot demo. Only providers with valid API credentials can be selected.</p>';
+			},
+			'ai-assistant-settings'
+		);
+
+		add_settings_field(
+			'ai_assistant_current_provider',
+			__( 'Current Provider', 'ai-assistant' ),
+			array( $this, 'provider_dropdown_field' ),
+			'ai-assistant-settings',
+			'ai_assistant_provider_section'
+		);
+	}
+
+	/**
+	 * Render the provider dropdown, only allowing selection of providers with valid credentials
+	 */
+	public function provider_dropdown_field() {
+		$providers = array(
+			'anthropic' => __( 'Anthropic', 'ai-assistant' ),
+			'google'    => __( 'Google', 'ai-assistant' ),
+			'openai'    => __( 'OpenAI', 'ai-assistant' ),
+		);
+		$options   = array(
+			'anthropic' => get_option( 'ai_assistant_anthropic_key', '' ),
+			'google'    => get_option( 'ai_assistant_google_key', '' ),
+			'openai'    => get_option( 'ai_assistant_openai_key', '' ),
+		);
+		$current   = get_option( 'ai_assistant_current_provider', 'anthropic' );
+		echo '<select name="ai_assistant_current_provider">';
+		foreach ( $providers as $key => $label ) {
+			$disabled = empty( $options[ $key ] ) ? 'disabled' : '';
+			$selected = ( $current === $key ) ? 'selected' : '';
+			echo '<option value="' . esc_attr( $key ) . '" ' . $selected . ' ' . $disabled . '>' . esc_html( $label ) . '</option>';
+		}
+		echo '</select>';
 	}
 
 	/**
