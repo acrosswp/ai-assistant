@@ -1,0 +1,28 @@
+{
+    "name": "wpboilerplate/ai-assistant",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "description": "Composer to autoload the condition checking for which this add-on is made",
+    "homepage": "https://github.com/WPBoilerplate/",
+    "minimum-stability": "dev",
+    "require": {},
+    "keywords": [
+        "wordpress",
+        "plugin"
+    ],
+    "support": {
+        "issues": "https://github.com/wpboilerplate/ai-assistant/issues"
+    },
+    "authors": [
+        {
+            "name": "WPBoilerplate"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+        "Ai_Assistant\\Includes\\": "includes/",
+        "Ai_Assistant\\Admin\\": "admin/",
+        "Ai_Assistant\\Public\\": "public/"
+        }
+    }
+}

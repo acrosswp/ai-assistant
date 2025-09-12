@@ -1,0 +1,40 @@
+{
+  "name": "ai-assistant",
+  "title": "Ai Assistant",
+  "description": "Ai Assistant by WPBoilerplate.",
+  "homepage": "https://github.com/woocommerce/woocommerce/wiki",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wpboilerplate/ai-assistant.git"
+  },
+  "author": "WPBoilerplate",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/wpboilerplate/ai-assistant/issues"
+  },
+  "scripts": {
+		"build": "wp-scripts build",
+		"format": "wp-scripts format",
+		"lint:css": "wp-scripts lint-style",
+		"lint:js": "wp-scripts lint-js",
+		"packages-update": "wp-scripts packages-update",
+		"plugin-zip": "wp-scripts plugin-zip",
+		"start": "wp-scripts start"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "latest",
+		"copy-webpack-plugin": "latest",
+		"glob": "latest",
+		"mini-css-extract-plugin": "latest",
+		"path": "latest",
+		"webpack-fix-style-only-entries": "latest",
+		"webpack-remove-empty-scripts": "latest"
+	},
+	"dependencies": {
+		"@wordpress/icons": "latest"
+	},
+  "keywords": [
+    "ai-assistant"
+  ]
+}
