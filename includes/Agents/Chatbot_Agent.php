@@ -47,6 +47,78 @@ class Chatbot_Agent extends Abstract_Agent {
 	}
 
 	/**
+	 * Check if a model supports function calling
+	 *
+	 * @param string $provider_id The provider ID
+	 * @param string $model_id The model ID
+	 * @return bool Whether the model supports function calling
+	 */
+	public function check_model_supports_function_calling( $provider_id, $model_id ) {
+		// Make this method public so it can be called from the REST_Routes class
+		return $this->check_model_supports_function_calling_internal( $provider_id, $model_id );
+	}
+
+	/**
+	 * Internal implementation for checking if a model supports function calling
+	 *
+	 * @param string $provider_id The provider ID
+	 * @param string $model_id The model ID
+	 * @return bool Whether the model supports function calling
+	 */
+	private function check_model_supports_function_calling_internal( $provider_id, $model_id ) {
+		// Default model compatibility table
+		$function_calling_support = array(
+			'openai'    => array(
+				// GPT-4 models support function calling
+				'gpt-4'         => true,
+				'gpt-4-turbo'   => true,
+				'gpt-4o'        => true,
+				'gpt-3.5-turbo' => true,
+				// Older models don't support function calling
+				'text-davinci'  => false,
+				'text-curie'    => false,
+				'text-babbage'  => false,
+				'text-ada'      => false,
+				// DALL-E models don't support function calling
+				'dall-e'        => false,
+			),
+			'anthropic' => array(
+				// Claude 3 models support function calling
+				'claude-3'        => true,
+				'claude-3-opus'   => true,
+				'claude-3-sonnet' => true,
+				'claude-3-haiku'  => true,
+				// Claude 2 models don't support function calling
+				'claude-2'        => false,
+				'claude-2.0'      => false,
+				'claude-2.1'      => false,
+				'claude-instant'  => false,
+			),
+			'google'    => array(
+				// Gemini models support function calling
+				'gemini-1.5' => true,
+				'gemini-1.0' => true,
+				'gemini-pro' => true,
+			),
+		);
+
+		// Check for exact match
+		if ( isset( $function_calling_support[ $provider_id ][ $model_id ] ) ) {
+			return $function_calling_support[ $provider_id ][ $model_id ];
+		}
+
+		// Check for partial match (e.g., if model ID contains version)
+		foreach ( $function_calling_support[ $provider_id ] ?? array() as $pattern => $supports ) {
+			if ( stripos( $model_id, $pattern ) !== false ) {
+				return $supports;
+			}
+		}
+
+		// Default to false for unknown models to be safe
+		return false;
+	}
+
+	/**
 	 * Prompts the LLM with the current trajectory as input.
 	 *
 	 * @since 0.0.1
@@ -70,13 +142,33 @@ class Chatbot_Agent extends Abstract_Agent {
 		$abilities_map = $reflection->getValue( $this );
 
 		// Only set requirements if we actually have abilities
-		$requirements = array();
-		if ( ! empty( $abilities_map ) ) {
+		$requirements  = array();
+		$has_abilities = ! empty( $abilities_map );
+		if ( $has_abilities ) {
 			$requirements['function_calling'] = true;
 		}
 
-		// Get preferred model with fallback mechanisms
-		$model_id = $this->provider_manager->get_preferred_model_id( $provider_id, $requirements );
+		// Use selected model from settings if set, otherwise fallback to preferred model
+		$selected_model = get_option( 'ai_assistant_selected_model', '' );
+		if ( ! empty( $selected_model ) ) {
+			$model_id = $selected_model;
+
+			// Verify that the selected model supports function calling if we have abilities
+			if ( $has_abilities ) {
+				$supports_function_calling = $this->check_model_supports_function_calling_internal( $provider_id, $model_id );
+				if ( ! $supports_function_calling ) {
+					error_log( "AI Assistant: Selected model $model_id doesn't support function calling" );
+					throw new \InvalidArgumentException(
+						sprintf(
+							'The selected model "%s" does not support function calling features. Please select a different model in the settings.',
+							$model_id
+						)
+					);
+				}
+			}
+		} else {
+			$model_id = $this->provider_manager->get_preferred_model_id( $provider_id, $requirements );
+		}
 
 		// If no model is found, try to get any available model from any provider
 		if ( empty( $model_id ) ) {
@@ -111,15 +203,64 @@ class Chatbot_Agent extends Abstract_Agent {
 		try {
 			$model  = AiClient::defaultRegistry()->getProviderModel( $provider_id, $model_id );
 			$prompt = $prompt->usingModel( $model );
+
+			// Get max tokens from settings, default to 200
+			$max_tokens = absint( get_option( 'ai_assistant_max_tokens', 200 ) );
+			if ( method_exists( $prompt, 'withMaxTokens' ) ) {
+				$prompt = $prompt->withMaxTokens( $max_tokens );
+			}
+
+			// Add retry mechanism for tool calls issues
+			$retries = 3;
+			$message = null;
+
+			for ( $i = 0; $i < $retries; $i++ ) {
+				try {
+					$message = $prompt
+						->usingSystemInstruction( $this->get_system_instruction() )
+						->generateTextResult()
+						->toMessage();
+
+					// Check for empty tool_calls array (this causes 400 errors)
+					$parts = $message->getParts();
+					foreach ( $parts as $part ) {
+						if ( method_exists( $part, 'getToolCalls' ) &&
+							is_array( $part->getToolCalls() ) &&
+							empty( $part->getToolCalls() ) ) {
+							// If empty tool_calls, throw exception to retry
+							throw new \Exception( 'Empty tool_calls detected, retrying...' );
+						}
+					}
+
+					// If we get here, message is valid
+					return $message;
+				} catch ( \Exception $e ) {
+					error_log( 'AI Assistant: Retry attempt ' . ( $i + 1 ) . ' - ' . $e->getMessage() );
+					if ( $i === $retries - 1 ) {
+						// On last retry, throw error to handle in parent
+						throw $e;
+					}
+					// Small delay before retry
+					usleep( 500000 ); // 500ms
+				}
+			}
+
+			// Fallback - should not reach here but just in case
+			return $message;
 		} catch ( \Exception $e ) {
-			error_log( 'AI Assistant: Error getting model: ' . $e->getMessage() );
+			$error_message = $e->getMessage();
+			error_log( 'AI Assistant: Error getting model: ' . $error_message );
+
+			// Provide more helpful error messages for specific error cases
+			if ( stripos( $error_message, 'function' ) !== false &&
+				( stripos( $error_message, 'calling' ) !== false || stripos( $error_message, 'tools' ) !== false ) ) {
+				throw new \InvalidArgumentException(
+					'The selected model does not support function calling or tools. Please select a different model in the settings.'
+				);
+			}
+
 			throw new \InvalidArgumentException( 'Failed to initialize AI model. Please try again later or check your settings.' );
 		}
-
-		return $prompt
-			->usingSystemInstruction( $this->get_system_instruction() )
-			->generateTextResult()
-			->toMessage();
 	}
 
 	/**

@@ -1,20 +1,14 @@
 <?php
 namespace Ai_Assistant\Admin\Partials;
 
-/**
- * Ai_Assistant_Main_Menu Main Menu Class.
- *
- * @since Ai_Assistant_Main_Menu 0.0.1
- */
+use Ai_Assistant\Admin\Settings\Settings_Manager;
+use Ai_Assistant\Providers\Provider_Manager;
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
-
 /**
- * Fired during plugin licences.
- *
- * This class defines all code necessary to run during the plugin's licences and update.
+ * Main Menu Class for the AI Assistant plugin.
  *
  * @since      0.0.1
  * @package    Ai_Assistant\Admin\Partials\Menu
@@ -41,6 +35,14 @@ class Menu {
 	private $version;
 
 	/**
+	 * Settings manager instance.
+	 *
+	 * @since    0.0.1
+	 * @var      Settings_Manager
+	 */
+	private $settings_manager;
+
+	/**
 	 * Initialize the class and set its properties.
 	 *
 	 * @since    0.0.1
@@ -50,8 +52,13 @@ class Menu {
 	public function __construct( $plugin_name, $version ) {
 		$this->plugin_name = $plugin_name;
 		$this->version     = $version;
-		// Always register settings so they are available for the settings page.
-		add_action( 'admin_init', array( $this, 'register_settings' ) );
+
+		// Initialize settings manager
+		$provider_manager       = new Provider_Manager();
+		$this->settings_manager = new Settings_Manager( $provider_manager );
+
+		// Register settings
+		add_action( 'admin_init', array( $this->settings_manager, 'register_settings' ) );
 	}
 
 	/**
@@ -113,133 +120,6 @@ class Menu {
 	}
 
 	/**
-	 * Register plugin settings and fields
-	 */
-	public function register_settings() {
-		// Initialize provider manager for settings integration
-		$provider_manager = new \Ai_Assistant\Providers\Provider_Manager();
-		$provider_manager->initialize_provider_credentials();
-		$provider_manager->initialize_current_provider();
-
-		register_setting( 'ai_assistant_settings_group', 'ai_assistant_anthropic_key' );
-		register_setting( 'ai_assistant_settings_group', 'ai_assistant_google_key' );
-		register_setting( 'ai_assistant_settings_group', 'ai_assistant_openai_key' );
-		register_setting( 'ai_assistant_settings_group', 'ai_assistant_settings' );
-		// Do NOT register ai_assistant_current_provider here; it is registered in Provider_Manager with proper sanitize_callback.
-
-		add_settings_section(
-			'ai_assistant_credentials_section',
-			__( 'Credentials', 'ai-assistant' ),
-			function () {
-				echo '<p>Paste your API credentials for the different providers you would like to use here.</p>';
-			},
-			'ai-assistant-settings'
-		);
-
-		add_settings_field(
-			'ai_assistant_anthropic_key',
-			__( 'Anthropic', 'ai-assistant' ),
-			function () {
-				$value = esc_attr( get_option( 'ai_assistant_anthropic_key', '' ) );
-				echo '<input type="password" name="ai_assistant_anthropic_key" value="' . $value . '" autocomplete="off" />';
-			},
-			'ai-assistant-settings',
-			'ai_assistant_credentials_section'
-		);
-
-		add_settings_field(
-			'ai_assistant_google_key',
-			__( 'Google', 'ai-assistant' ),
-			function () {
-				$value = esc_attr( get_option( 'ai_assistant_google_key', '' ) );
-				echo '<input type="password" name="ai_assistant_google_key" value="' . $value . '" autocomplete="off" />';
-			},
-			'ai-assistant-settings',
-			'ai_assistant_credentials_section'
-		);
-
-		add_settings_field(
-			'ai_assistant_openai_key',
-			__( 'OpenAI', 'ai-assistant' ),
-			function () {
-				$value = esc_attr( get_option( 'ai_assistant_openai_key', '' ) );
-				echo '<input type="password" name="ai_assistant_openai_key" value="' . $value . '" autocomplete="off" />';
-			},
-			'ai-assistant-settings',
-			'ai_assistant_credentials_section'
-		);
-
-		add_settings_section(
-			'ai_assistant_provider_section',
-			__( 'Provider Preferences', 'ai-assistant' ),
-			function () {
-				echo '<p>Choose the provider you would like to use for the chatbot demo. Only providers with valid API credentials can be selected.</p>';
-			},
-			'ai-assistant-settings'
-		);
-
-		add_settings_field(
-			'ai_assistant_current_provider',
-			__( 'Current Provider', 'ai-assistant' ),
-			array( $this, 'provider_dropdown_field' ),
-			'ai-assistant-settings',
-			'ai_assistant_provider_section'
-		);
-
-		// Add debugging section
-		add_settings_section(
-			'ai_assistant_debugging_section',
-			__( 'Debugging', 'ai-assistant' ),
-			function () {
-				echo '<p>Debug settings to help troubleshoot provider-specific issues.</p>';
-			},
-			'ai-assistant-settings'
-		);
-
-		add_settings_field(
-			'ai_assistant_debug_providers',
-			__( 'Enable Provider Debugging', 'ai-assistant' ),
-			function () {
-				$options = get_option( 'ai_assistant_settings', array() );
-				$checked = isset( $options['debug_providers'] ) && $options['debug_providers'] ? 'checked' : '';
-				echo '<input type="checkbox" name="ai_assistant_settings[debug_providers]" value="1" ' . $checked . ' />';
-				echo '<p class="description">' . esc_html__( 'Log all provider API requests and responses to the WordPress error log. Use this to troubleshoot provider-specific issues.', 'ai-assistant' ) . '</p>';
-			},
-			'ai-assistant-settings',
-			'ai_assistant_debugging_section'
-		);
-	}
-
-	/**
-	 * Render the provider dropdown, only allowing selection of providers with valid credentials
-	 */
-	public function provider_dropdown_field() {
-		$providers = array(
-			'anthropic' => __( 'Anthropic', 'ai-assistant' ),
-			'google'    => __( 'Google', 'ai-assistant' ),
-			'openai'    => __( 'OpenAI', 'ai-assistant' ),
-		);
-		$options   = array(
-			'anthropic' => get_option( 'ai_assistant_anthropic_key', '' ),
-			'google'    => get_option( 'ai_assistant_google_key', '' ),
-			'openai'    => get_option( 'ai_assistant_openai_key', '' ),
-		);
-		$current   = get_option( 'ai_assistant_current_provider', 'anthropic' );
-		echo '<select name="ai_assistant_current_provider">';
-		foreach ( $providers as $key => $label ) {
-			$selected = ( $current === $key ) ? 'selected' : '';
-			$has_key  = ! empty( $options[ $key ] );
-			$style    = $has_key ? '' : ' style="color:#aaa;"';
-			echo '<option value="' . esc_attr( $key ) . '" ' . $selected . $style . '>' . esc_html( $label ) . ( $has_key ? '' : ' (no key)' ) . '</option>';
-		}
-		echo '</select>';
-		// Optionally, show a warning if the selected provider has no key
-		if ( ! empty( $current ) && empty( $options[ $current ] ) ) {
-			echo '<div style="color:#b00; margin-top:8px;">' . esc_html__( 'Warning: The selected provider does not have a valid API key. Please enter a key for this provider.', 'ai-assistant' ) . '</div>';
-		}
-	}
-
-	/**
 	 * Add Settings link to plugins area.
 	 *
 	 * @since    0.0.1
@@ -249,7 +129,6 @@ class Menu {
 	 * @return array Processed links.
 	 */
 	public function plugin_action_links( $links, $file ) {
-
 		// Return normal links if not BuddyPress.
 		if ( \AI_ASSISTANT_PLUGIN_BASENAME !== $file ) {
 			return $links;
