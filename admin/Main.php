@@ -121,5 +121,26 @@ class Main {
 		 */
 
 		wp_enqueue_script( $this->plugin_name, \AI_ASSISTANT_PLUGIN_URL . 'build/js/backend.js', $this->js_asset_file['dependencies'], $this->js_asset_file['version'], false );
+
+		// Enqueue chatbot script for admin users
+		if ( current_user_can( 'manage_options' ) ) {
+			wp_enqueue_script(
+				$this->plugin_name . '-chatbot',
+				\AI_ASSISTANT_PLUGIN_URL . 'src/js/chatbot.js',
+				array( 'jquery' ),
+				$this->version,
+				true
+			);
+
+			// Localize script for REST API
+			wp_localize_script(
+				$this->plugin_name . '-chatbot',
+				'aiAssistantChatbot',
+				array(
+					'apiUrl' => rest_url( 'ai-assistant/v1/' ),
+					'nonce'  => wp_create_nonce( 'wp_rest' ),
+				)
+			);
+		}
 	}
 }

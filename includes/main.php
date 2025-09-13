@@ -10,9 +10,7 @@ defined( 'ABSPATH' ) || exit;
  * A class definition that includes attributes and functions used across both the
  * public-facing side of the site and the admin area.
  *
- * @link       https://github.com/WPBoilerplate/ai-assistant
  * @since      0.0.1
- *
  * @package    Ai_Assistant
  * @subpackage Ai_Assistant/includes
  */
@@ -169,8 +167,6 @@ final class Main {
 		$version     = $plugin_data['Version'];
 		$this->define( 'AI_ASSISTANT_VERSION', $version );
 
-		$this->define( 'AI_ASSISTANT_PLUGIN_URL', $version );
-
 		$this->plugin_dir = AI_ASSISTANT_PLUGIN_PATH;
 	}
 
@@ -281,7 +277,6 @@ final class Main {
 		$this->loader->add_action( 'init', $i18n, 'do_load_textdomain' );
 	}
 
-
 	/**
 	 * Register all of the hooks related to the admin area functionality
 	 * of the plugin.
@@ -303,6 +298,51 @@ final class Main {
 		$main_menu = new \Ai_Assistant\Admin\Partials\Menu( $this->get_plugin_name(), $this->get_version() );
 		$this->loader->add_action( 'admin_menu', $main_menu, 'main_menu' );
 		$this->loader->add_action( 'plugin_action_links', $main_menu, 'plugin_action_links', 1000, 2 );
+
+		// Initialize chatbot functionality
+		$this->init_chatbot();
+	}
+
+	/**
+	 * Initialize chatbot functionality.
+	 *
+	 * @since 0.0.1
+	 * @access private
+	 */
+	private function init_chatbot() {
+		// Initialize provider debug logging
+		if ( file_exists( $this->plugin_dir . 'utils/provider-debug-logging.php' ) ) {
+			require_once $this->plugin_dir . 'utils/provider-debug-logging.php';
+		}
+
+		// Initialize provider manager
+		$provider_manager = new \Ai_Assistant\Providers\Provider_Manager();
+
+		// Hook to initialize provider configuration settings
+		$this->loader->add_action( 'init', $provider_manager, 'initialize_provider_credentials' );
+		$this->loader->add_action( 'init', $provider_manager, 'initialize_current_provider' );
+
+		// Hook to register REST API route using direct WordPress hooks for closures
+		add_action(
+			'rest_api_init',
+			function () use ( $provider_manager ) {
+				$chatbot_route = new \Ai_Assistant\REST_Routes\Chatbot_Messages_REST_Route(
+					$provider_manager,
+					'ai-assistant/v1',
+					'messages'
+				);
+				$chatbot_route->register_route();
+			}
+		);
+
+		// Register abilities using direct WordPress hooks for closures
+		add_action(
+			'abilities_api_init',
+			function () {
+				$registrar = new \Ai_Assistant\Abilities\Abilities_Registrar();
+				$registrar->register_abilities();
+			}
+		);
 	}
 
 	/**
@@ -319,6 +359,11 @@ final class Main {
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
+
+		// Initialize chatbot scripts
+		$chatbot = new \Ai_Assistant\Public\Chatbot( $this->get_plugin_name(), $this->get_version() );
+		$this->loader->add_action( 'wp_enqueue_scripts', $chatbot, 'enqueue_scripts' );
+		$this->loader->add_action( 'admin_enqueue_scripts', $chatbot, 'enqueue_scripts' );
 	}
 
 	/**

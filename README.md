@@ -1,4 +1,29 @@
-# @wordpress/scripts
+````markdown
+# AI Assistant Plugin
+
+This WordPress plugin provides AI capabilities to your website through integration with various AI providers including Anthropic, Google, and OpenAI.
+
+## Features
+
+- Chatbot functionality for admin and public-facing pages
+- Multiple AI provider support (Anthropic, Google, OpenAI)
+- WordPress Settings API integration for provider configuration
+- REST API endpoints for message processing
+- Provider debug logging for troubleshooting
+
+## Recent Fixes
+
+For details about recent bugfixes, please see [FIXES.md](FIXES.md).
+
+## Documentation
+
+- [Provider Debug Logging](docs/provider-debug-logging.md) - Learn how to use the debug logging feature to troubleshoot provider-specific issues
+- [Troubleshooting Guide](docs/troubleshooting-guide.md) - Common issues and solutions
+- [Empty Tool Calls Fix](docs/empty-tool-calls-fix.md) - Details about the fix for empty tool_calls errors
+
+## Development Setup
+
+### @wordpress/scripts
 
 https://developer.wordpress.org/block-editor/reference-guides/packages/packages-scripts/
 
@@ -16,7 +41,7 @@ Now are using the https://github.com/x3p0-dev/x3p0-ideas/tree/block-example exma
 
 2. Now run `composer require wpboilerplate/wpb-register-blocks`
 
-3. Now add 
+3. Now add
 ```
 /**
  * Check if class exists or not
@@ -37,7 +62,7 @@ inside the `load_composer_dependencies` method at the end
 
 2. Now run `composer update`
 
-3. Now add 
+3. Now add
 ```
 /**
  * Check if class exists or not

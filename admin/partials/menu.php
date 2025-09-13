@@ -116,10 +116,16 @@ class Menu {
 	 * Register plugin settings and fields
 	 */
 	public function register_settings() {
+		// Initialize provider manager for settings integration
+		$provider_manager = new \Ai_Assistant\Providers\Provider_Manager();
+		$provider_manager->initialize_provider_credentials();
+		$provider_manager->initialize_current_provider();
+
 		register_setting( 'ai_assistant_settings_group', 'ai_assistant_anthropic_key' );
 		register_setting( 'ai_assistant_settings_group', 'ai_assistant_google_key' );
 		register_setting( 'ai_assistant_settings_group', 'ai_assistant_openai_key' );
-		register_setting( 'ai_assistant_settings_group', 'ai_assistant_current_provider' );
+		register_setting( 'ai_assistant_settings_group', 'ai_assistant_settings' );
+		// Do NOT register ai_assistant_current_provider here; it is registered in Provider_Manager with proper sanitize_callback.
 
 		add_settings_section(
 			'ai_assistant_credentials_section',
@@ -179,6 +185,29 @@ class Menu {
 			'ai-assistant-settings',
 			'ai_assistant_provider_section'
 		);
+
+		// Add debugging section
+		add_settings_section(
+			'ai_assistant_debugging_section',
+			__( 'Debugging', 'ai-assistant' ),
+			function () {
+				echo '<p>Debug settings to help troubleshoot provider-specific issues.</p>';
+			},
+			'ai-assistant-settings'
+		);
+
+		add_settings_field(
+			'ai_assistant_debug_providers',
+			__( 'Enable Provider Debugging', 'ai-assistant' ),
+			function () {
+				$options = get_option( 'ai_assistant_settings', array() );
+				$checked = isset( $options['debug_providers'] ) && $options['debug_providers'] ? 'checked' : '';
+				echo '<input type="checkbox" name="ai_assistant_settings[debug_providers]" value="1" ' . $checked . ' />';
+				echo '<p class="description">' . esc_html__( 'Log all provider API requests and responses to the WordPress error log. Use this to troubleshoot provider-specific issues.', 'ai-assistant' ) . '</p>';
+			},
+			'ai-assistant-settings',
+			'ai_assistant_debugging_section'
+		);
 	}
 
 	/**
@@ -198,11 +227,16 @@ class Menu {
 		$current   = get_option( 'ai_assistant_current_provider', 'anthropic' );
 		echo '<select name="ai_assistant_current_provider">';
 		foreach ( $providers as $key => $label ) {
-			$disabled = empty( $options[ $key ] ) ? 'disabled' : '';
 			$selected = ( $current === $key ) ? 'selected' : '';
-			echo '<option value="' . esc_attr( $key ) . '" ' . $selected . ' ' . $disabled . '>' . esc_html( $label ) . '</option>';
+			$has_key  = ! empty( $options[ $key ] );
+			$style    = $has_key ? '' : ' style="color:#aaa;"';
+			echo '<option value="' . esc_attr( $key ) . '" ' . $selected . $style . '>' . esc_html( $label ) . ( $has_key ? '' : ' (no key)' ) . '</option>';
 		}
 		echo '</select>';
+		// Optionally, show a warning if the selected provider has no key
+		if ( ! empty( $current ) && empty( $options[ $current ] ) ) {
+			echo '<div style="color:#b00; margin-top:8px;">' . esc_html__( 'Warning: The selected provider does not have a valid API key. Please enter a key for this provider.', 'ai-assistant' ) . '</div>';
+		}
 	}
 
 	/**
