@@ -217,7 +217,12 @@ abstract class Abstract_Agent implements Agent {
 	public function get_function_declarations(): array {
 		$function_declarations = array();
 		foreach ( $this->abilities_map as $ability ) {
-			$function_declarations[] = $ability->get_function_declaration();
+			if ( method_exists( $ability, 'get_function_declaration' ) ) {
+				$function_declarations[] = $ability->get_function_declaration();
+			} else {
+				// Fallback for abilities that don't implement get_function_declaration
+				error_log( 'Ability ' . $ability->get_name() . ' does not implement get_function_declaration method.' );
+			}
 		}
 		return $function_declarations;
 	}
@@ -288,22 +293,19 @@ abstract class Abstract_Agent implements Agent {
 		try {
 			$response = $ability->execute( $function_call->getArgs() );
 
-			// Workaround for SDK compatibility
-			// Create a message directly rather than using FunctionResponse object
-			$response_data = json_encode(
-				array(
-					'name'     => $function_call->getName(),
-					'response' => $response,
-				)
+			// Create a proper function response with the tool_call_id
+			$function_response = new FunctionResponse(
+				$function_call->getId(), // Include the tool_call_id
+				$function_call->getName(),
+				$response
 			);
 
+			// Create a message part with the function response
 			return new Message(
 				MessageRoleEnum::user(),
 				array(
 					new MessagePart(
-						MessagePartChannelEnum::content(),
-						MessagePartTypeEnum::text(),
-						$response_data
+						$function_response
 					),
 				)
 			);
@@ -331,18 +333,13 @@ abstract class Abstract_Agent implements Agent {
 		// Create the message part based on constructor signature
 		try {
 			$message_part = new MessagePart(
-				MessagePartChannelEnum::content(),
-				MessagePartTypeEnum::text(),
 				$error_text,
-				null,
-				null,
-				null
+				MessagePartChannelEnum::content()
 			);
 		} catch ( Exception $e ) {
-			// Try alternate constructor signature
+			// Log error and use a simpler approach if needed
+			error_log( 'Error creating message part: ' . $e->getMessage() );
 			$message_part = new MessagePart(
-				MessagePartChannelEnum::content(),
-				MessagePartTypeEnum::text(),
 				$error_text
 			);
 		}

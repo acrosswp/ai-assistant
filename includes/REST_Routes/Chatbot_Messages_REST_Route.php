@@ -246,7 +246,7 @@ class Chatbot_Messages_REST_Route {
 
 		$messages[] = $result_message;
 
-		update_user_option( get_current_user_id(), 'ai_assistant_chatbot_messages', $messages );
+		update_user_meta( get_current_user_id(), 'wp_ai_assistant_chatbot_messages', $messages );
 
 		return rest_ensure_response( $result_message );
 	}
@@ -259,7 +259,7 @@ class Chatbot_Messages_REST_Route {
 	 * @return WP_REST_Response WordPress REST response object.
 	 */
 	public function reset_messages(): WP_REST_Response {
-		delete_user_option( get_current_user_id(), 'ai_assistant_chatbot_messages' );
+		delete_user_meta( get_current_user_id(), 'wp_ai_assistant_chatbot_messages' );
 
 		return rest_ensure_response( array( 'success' => true ) );
 	}
@@ -330,7 +330,8 @@ class Chatbot_Messages_REST_Route {
 	 *                                    'type' property.
 	 */
 	protected function get_messages_history(): array {
-		$messages = get_user_option( 'ai_assistant_chatbot_messages' );
+		// Using get_user_meta directly with the correct key prefix
+		$messages = get_user_meta( get_current_user_id(), 'wp_ai_assistant_chatbot_messages', true );
 		if ( ! is_array( $messages ) ) {
 			$messages = array();
 		}
