@@ -69,5 +69,29 @@ class Abilities_Registrar {
 				'ability_class' => Set_Permalink_Structure_Ability::class,
 			)
 		);
+
+		\wp_register_ability(
+			'ai-assistant/install-plugin',
+			array(
+				'label'         => __( 'Install Plugin', 'ai-assistant' ),
+				'ability_class' => Install_Plugin_Ability::class,
+			)
+		);
+
+		\wp_register_ability(
+			'ai-assistant/activate-plugin',
+			array(
+				'label'         => __( 'Activate Plugin', 'ai-assistant' ),
+				'ability_class' => Activate_Plugin_Ability::class,
+			)
+		);
+
+		\wp_register_ability(
+			'ai-assistant/get-active-plugins',
+			array(
+				'label'         => __( 'Get Active Plugins', 'ai-assistant' ),
+				'ability_class' => Get_Active_Plugins_Ability::class,
+			)
+		);
 	}
 }

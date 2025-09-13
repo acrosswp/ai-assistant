@@ -44,44 +44,51 @@ class Chatbot {
 	}
 
 	/**
-	 * Register the chatbot JavaScript for the public-facing side of the site.
+	 * Register the script for the public-facing side of the site.
 	 *
 	 * @since    0.0.1
 	 */
 	public function enqueue_scripts() {
-		// Only load chatbot for logged-in users with appropriate permissions
-		if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+
+		// Check if we're in admin area
+		if ( ! is_admin() ) {
 			return;
 		}
+
+		// Only show chatbot to administrators
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// Debug logging - remove after testing
+		error_log( 'AI Assistant Chatbot: Scripts are being enqueued for user with manage_options capability' );
 
 		// Enqueue jQuery as a dependency
 		wp_enqueue_script( 'jquery' );
 
-		// Get the chatbot script - direct source path to avoid build issues
+		// Enqueue modular chatbot scripts with working approach
+
+		// 1. Core script with inline wpApiSettings (ensures immediate availability)
 		wp_enqueue_script(
-			$this->plugin_name . '-chatbot',
-			\AI_ASSISTANT_PLUGIN_URL . 'src/js/chatbot.js',
+			$this->plugin_name . '-chatbot-main',
+			\AI_ASSISTANT_PLUGIN_URL . 'src/js/chatbot/chatbot-main.js',
 			array( 'jquery' ),
 			$this->version,
 			true
 		);
 
 		// Add the necessary wp-api settings for REST API calls
-		wp_localize_script(
-			$this->plugin_name . '-chatbot',
-			'wpApiSettings',
-			array(
-				'root'              => esc_url_raw( rest_url() ),
-				'nonce'             => wp_create_nonce( 'wp_rest' ),
-				'messages_endpoint' => rest_url( 'ai-assistant/v1/messages' ),
-			)
+		$api_settings = array(
+			'root'              => esc_url_raw( rest_url() ),
+			'nonce'             => wp_create_nonce( 'wp_rest' ),
+			'messages_endpoint' => rest_url( 'ai-assistant/v1/messages' ),
+			'user_can_manage'   => current_user_can( 'manage_options' ),
 		);
 
-			// Add ajaxurl for compatibility with the chatbot script (legacy, not used for REST)
-			wp_localize_script(
-				$this->plugin_name . '-chatbot',
-				'ajaxurl',
-				admin_url( 'admin-ajax.php' )
-			);
+		wp_localize_script(
+			$this->plugin_name . '-chatbot-main',
+			'wpApiSettings',
+			$api_settings
+		);
 	}
 }

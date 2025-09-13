@@ -182,7 +182,7 @@ class Chatbot_Messages_REST_Route {
 			);
 
 			$messages[] = $result_message;
-			update_user_option( get_current_user_id(), 'ai_assistant_chatbot_messages', $messages );
+			update_user_meta( get_current_user_id(), 'wp_ai_assistant_chatbot_messages', $messages );
 			return rest_ensure_response( $result_message );
 		}
 
@@ -195,6 +195,9 @@ class Chatbot_Messages_REST_Route {
 				new \Ai_Assistant\Abilities\Search_Posts_Ability(),
 				new \Ai_Assistant\Abilities\Generate_Post_Featured_Image_Ability(),
 				new \Ai_Assistant\Abilities\Set_Permalink_Structure_Ability(),
+				new \Ai_Assistant\Abilities\Install_Plugin_Ability(),
+				new \Ai_Assistant\Abilities\Activate_Plugin_Ability(),
+				new \Ai_Assistant\Abilities\Get_Active_Plugins_Ability(),
 			);
 
 			$agent = new Chatbot_Agent( $this->provider_manager, $abilities, $message_instances );

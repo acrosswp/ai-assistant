@@ -14,8 +14,14 @@
          * Initialize the chatbot
          */
         init: function() {
-            this.createChatbotInterface();
-            this.bindEvents();
+            try {
+                console.log('AI Assistant Chatbot: Starting initialization...');
+                this.createChatbotInterface();
+                this.bindEvents();
+                console.log('AI Assistant Chatbot: Initialization complete');
+            } catch (error) {
+                console.error('AI Assistant Chatbot: Initialization failed:', error);
+            }
         },
 
         /**
@@ -26,7 +32,10 @@
                 <div id="ai-assistant-chatbot" class="ai-assistant-chatbot" style="display: none;">
                     <div class="chatbot-header">
                         <h3>AI Assistant</h3>
-                        <button class="chatbot-close" aria-label="Close Chatbot">&times;</button>
+                        <div class="chatbot-header-actions">
+                            <button class="chatbot-clear" aria-label="Clear History" title="Clear Chat History">🗑️</button>
+                            <button class="chatbot-close" aria-label="Close Chatbot">&times;</button>
+                        </div>
                     </div>
                     <div class="chatbot-messages" id="chatbot-messages">
                         <div class="message bot-message">
@@ -47,8 +56,15 @@
                 </button>
             `;
 
-            $('body').append(chatbotHTML);
-            this.addStyles();
+            try {
+                console.log('Creating chatbot interface...');
+                $('body').append(chatbotHTML);
+                console.log('Chatbot HTML added to body');
+                this.addStyles();
+                console.log('Chatbot styles added');
+            } catch (error) {
+                console.error('Error creating chatbot interface:', error);
+            }
         },
 
         /**
@@ -111,14 +127,31 @@
                     font-weight: 600;
                 }
 
-                .chatbot-close {
+                .chatbot-header-actions {
+                    display: flex;
+                    gap: 10px;
+                    align-items: center;
+                }
+
+                .chatbot-close, .chatbot-clear {
                     background: none;
                     border: none;
                     color: white;
-                    font-size: 20px;
+                    font-size: 16px;
                     cursor: pointer;
-                    padding: 0;
+                    padding: 4px;
                     line-height: 1;
+                    border-radius: 3px;
+                    transition: background-color 0.2s ease;
+                }
+
+                .chatbot-close:hover, .chatbot-clear:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                }
+
+                .chatbot-close {
+                    font-size: 20px;
+                    padding: 0;
                 }
 
                 .chatbot-messages {
@@ -258,6 +291,11 @@
                 self.closeChatbot();
             });
 
+            // Clear chat history
+            $(document).on('click', '.chatbot-clear', function() {
+                self.clearChatHistory();
+            });
+
             // Send message
             $(document).on('submit', '#chatbot-form', function(e) {
                 e.preventDefault();
@@ -285,6 +323,9 @@
                 chatbot.show();
                 toggle.hide();
                 $('#chatbot-input').focus();
+
+                // Load message history when opening chatbot
+                this.loadMessageHistory();
             }
         },
 
@@ -364,6 +405,55 @@
         },
 
         /**
+         * Load message history
+         */
+        loadMessageHistory: function() {
+            const self = this;
+
+            console.log('Loading message history...');
+            console.log('wpApiSettings:', typeof wpApiSettings !== 'undefined' ? wpApiSettings : 'undefined');
+
+            // Check if wpApiSettings is available
+            if (typeof wpApiSettings === 'undefined') {
+                console.error('wpApiSettings not available, skipping message history load');
+                return;
+            }
+
+            $.ajax({
+                url: wpApiSettings.messages_endpoint || (ajaxurl.replace('admin-ajax.php', 'rest/ai-assistant/v1/messages')),
+                method: 'GET',
+                headers: {
+                    'X-WP-Nonce': wpApiSettings.nonce
+                },
+                success: function(response) {
+                    console.log('Message history response:', response);
+                    if (response && Array.isArray(response) && response.length > 0) {
+                        console.log('Loading', response.length, 'messages from history');
+                        // Clear existing messages (except welcome message)
+                        const messagesContainer = $('#chatbot-messages');
+                        messagesContainer.empty();
+
+                        // Add each message from history
+                        response.forEach(function(message, index) {
+                            if (message.parts && message.parts[0] && message.parts[0].text) {
+                                const messageType = message.role === 'user' ? 'user' : 'bot';
+                                console.log('Adding message', index, ':', messageType, message.parts[0].text.substring(0, 50) + '...');
+                                self.addMessage(message.parts[0].text, messageType);
+                            }
+                        });
+                    } else {
+                        console.log('No message history found or empty response');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading message history:', error);
+                    console.error('XHR:', xhr);
+                    // Keep the default welcome message if history fails to load
+                }
+            });
+        },
+
+        /**
          * Call chatbot API
          */
         callChatbotAPI: function(message) {
@@ -380,8 +470,18 @@
                 type: 'regular'
             };
 
+            // Check if wpApiSettings is available
+            if (typeof wpApiSettings === 'undefined') {
+                console.error('wpApiSettings not available, cannot send message');
+                self.hideLoading();
+                self.addMessage('Configuration error: wpApiSettings not loaded. Please refresh the page.', 'bot');
+                return;
+            }
+
+            console.log('Sending message with wpApiSettings:', wpApiSettings);
+
             $.ajax({
-                url: (typeof wpApiSettings !== 'undefined' && wpApiSettings.messages_endpoint) ? wpApiSettings.messages_endpoint : ajaxurl.replace('admin-ajax.php', 'rest/ai-assistant/v1/messages'),
+                url: wpApiSettings.messages_endpoint || (ajaxurl.replace('admin-ajax.php', 'rest/ai-assistant/v1/messages')),
                 method: 'POST',
                 headers: {
                     'X-WP-Nonce': wpApiSettings.nonce
@@ -401,6 +501,52 @@
                     self.hideLoading();
                     console.error('Chatbot API Error:', error);
                     self.addMessage('Sorry, I\'m having trouble connecting right now. Please try again later.', 'bot');
+                }
+            });
+        },
+
+        /**
+         * Clear chat history
+         */
+        clearChatHistory: function() {
+            const self = this;
+
+            if (!confirm('Are you sure you want to clear all chat history? This action cannot be undone.')) {
+                return;
+            }
+
+            // Check if wpApiSettings is available
+            if (typeof wpApiSettings === 'undefined') {
+                console.error('wpApiSettings not available, cannot clear history');
+                alert('Configuration error. Please refresh the page and try again.');
+                return;
+            }
+
+            // Call the reset API endpoint
+            $.ajax({
+                url: wpApiSettings.messages_endpoint ? wpApiSettings.messages_endpoint.replace('/messages', '/messages/reset') : (ajaxurl.replace('admin-ajax.php', 'rest/ai-assistant/v1/messages/reset')),
+                method: 'DELETE',
+                headers: {
+                    'X-WP-Nonce': wpApiSettings.nonce
+                },
+                success: function(response) {
+                    console.log('Chat history cleared successfully');
+
+                    // Clear the UI messages
+                    const messagesContainer = $('#chatbot-messages');
+                    messagesContainer.html(`
+                        <div class="message bot-message">
+                            <div class="message-content">
+                                <p>Hello! How can I help you with your WordPress site today?</p>
+                            </div>
+                        </div>
+                    `);
+
+                    self.scrollToBottom();
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error clearing chat history:', error);
+                    alert('Failed to clear chat history. Please try again.');
                 }
             });
         },
@@ -430,9 +576,34 @@
 
     // Initialize when DOM is ready
     $(document).ready(function() {
-        // Only initialize if user has permission (admin pages)
+        console.log('AI Assistant Chatbot: DOM Ready');
+        console.log('ajaxurl:', typeof ajaxurl);
+        console.log('wpApiSettings:', typeof wpApiSettings);
+
+        // Initialize if we're in admin area (more lenient check)
         if (typeof ajaxurl !== 'undefined') {
-            AiAssistantChatbot.init();
+            console.log('Initializing AI Assistant Chatbot...');
+
+            // Wait a bit for wpApiSettings to be available if it's not ready yet
+            if (typeof wpApiSettings === 'undefined') {
+                console.log('wpApiSettings not ready, waiting...');
+                setTimeout(function() {
+                    console.log('Retry - wpApiSettings:', typeof wpApiSettings);
+                    if (typeof wpApiSettings !== 'undefined') {
+                        console.log('wpApiSettings now available, initializing...');
+                        AiAssistantChatbot.init();
+                    } else {
+                        console.warn('wpApiSettings still not available after timeout');
+                        // Initialize anyway for basic functionality
+                        AiAssistantChatbot.init();
+                    }
+                }, 100);
+            } else {
+                console.log('wpApiSettings available, initializing immediately...');
+                AiAssistantChatbot.init();
+            }
+        } else {
+            console.warn('AI Assistant Chatbot: Not in admin area (ajaxurl not defined)');
         }
     });
 

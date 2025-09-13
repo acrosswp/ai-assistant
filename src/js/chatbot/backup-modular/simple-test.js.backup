@@ -1,0 +1,39 @@
+/**
+ * Simple wpApiSettings Test
+ * This is a minimal test to see if wpApiSettings is being loaded at all.
+ */
+
+console.log('=== SIMPLE CHATBOT TEST ===');
+console.log('wpApiSettings type:', typeof wpApiSettings);
+console.log('wpApiSettings exists:', typeof wpApiSettings !== 'undefined');
+
+if (typeof wpApiSettings !== 'undefined') {
+    console.log('wpApiSettings content:', wpApiSettings);
+    console.log('SUCCESS: wpApiSettings is available!');
+} else {
+    console.log('ERROR: wpApiSettings is not available');
+    console.log('Available global variables:', Object.keys(window).filter(key => key.includes('wp') || key.includes('ajax')));
+}
+
+// Try to create a simple chatbot interface
+jQuery(document).ready(function($) {
+    console.log('jQuery is available:', typeof $ !== 'undefined');
+
+    if (typeof wpApiSettings !== 'undefined' && wpApiSettings.messages_endpoint) {
+        // Add a simple test button
+        $('body').append(`
+            <div id="simple-chatbot-test" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: red; color: white; padding: 10px; border-radius: 5px;">
+                Simple Chatbot Test: wpApiSettings WORKING!<br>
+                Endpoint: ${wpApiSettings.messages_endpoint}
+            </div>
+        `);
+    } else {
+        $('body').append(`
+            <div id="simple-chatbot-test" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: red; color: white; padding: 10px; border-radius: 5px;">
+                Simple Chatbot Test: wpApiSettings FAILED!
+            </div>
+        `);
+    }
+});
+
+console.log('=== END SIMPLE CHATBOT TEST ===');

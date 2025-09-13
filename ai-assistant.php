@@ -23,7 +23,7 @@ namespace Ai_Assistant;
  * Plugin Name:       Ai Assistant
  * Plugin URI:        https://github.com/WPBoilerplate/ai-assistant
  * Description:       Ai Assistant by WPBoilerplate
- * Version:           0.0.1
+ * Version:           0.0.8
  * Author:            WPBoilerplate
  * Author URI:        https://github.com/WPBoilerplate/ai-assistant
  * License:           GPL-2.0+
