@@ -172,7 +172,7 @@
                     return;
                 }
 
-                const resetUrl = wpApiSettings.messages_endpoint.replace('/messages', '/messages/reset');
+                const resetUrl = wpApiSettings.messages_endpoint.replace('/messages', '/messages/');
 
                 $.ajax({
                     url: resetUrl,

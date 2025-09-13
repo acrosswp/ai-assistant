@@ -524,7 +524,7 @@
 
             // Call the reset API endpoint
             $.ajax({
-                url: wpApiSettings.messages_endpoint ? wpApiSettings.messages_endpoint.replace('/messages', '/messages/reset') : (ajaxurl.replace('admin-ajax.php', 'rest/ai-assistant/v1/messages/reset')),
+                url: wpApiSettings.messages_endpoint ? wpApiSettings.messages_endpoint.replace('/messages', '/messages/') : (ajaxurl.replace('admin-ajax.php', 'rest/ai-assistant/v1/messages/')),
                 method: 'DELETE',
                 headers: {
                     'X-WP-Nonce': wpApiSettings.nonce

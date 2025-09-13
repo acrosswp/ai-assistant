@@ -27,21 +27,21 @@ class Activate_Plugin_Ability extends Abstract_Ability {
 	}
 
 	protected function input_schema(): array {
-		return array(
-			'type'       => 'object',
-			'properties' => array(
-				'plugin_folder' => array(
-					'type'        => 'string',
-					'description' => __( 'The plugin folder name or slug (e.g., woocommerce, akismet).', 'ai-assistant' ),
-				),
-				'activate'      => array(
-					'type'        => 'boolean',
-					'description' => __( 'Whether to activate (true) or deactivate (false) the plugin.', 'ai-assistant' ),
-					'default'     => true,
-				),
-			),
-			'required'   => array( 'plugin_folder' ),
-		);
+				return array(
+					'type'       => 'object',
+					'properties' => array(
+						'plugin_name' => array(
+							'type'        => 'string',
+							'description' => __( 'The plugin name or folder/slug (e.g., WooCommerce, woocommerce, Akismet Anti-Spam, akismet).', 'ai-assistant' ),
+						),
+						'activate'    => array(
+							'type'        => 'boolean',
+							'description' => __( 'Whether to activate (true) or deactivate (false) the plugin.', 'ai-assistant' ),
+							'default'     => true,
+						),
+					),
+					'required'   => array( 'plugin_name' ),
+				);
 	}
 
 	protected function output_schema(): array {
@@ -69,36 +69,80 @@ class Activate_Plugin_Ability extends Abstract_Ability {
 	}
 
 	protected function execute_callback( $args ) {
-		if ( ! isset( $args->plugin_folder ) || ! is_string( $args->plugin_folder ) ) {
-			return new WP_Error( 'invalid_plugin_folder', __( 'A valid plugin folder name is required.', 'ai-assistant' ) );
+
+		// Only plugin_name is required
+		$plugin_input = isset( $args->plugin_name ) && is_string( $args->plugin_name ) ? sanitize_text_field( $args->plugin_name ) : '';
+		$activate     = isset( $args->activate ) ? (bool) $args->activate : true;
+
+		if ( empty( $plugin_input ) ) {
+			return new WP_Error( 'invalid_plugin_input', __( 'A valid plugin name or folder/slug is required.', 'ai-assistant' ) );
 		}
 
 		include_once ABSPATH . 'wp-admin/includes/plugin.php';
 
-		$plugin_folder = sanitize_text_field( $args->plugin_folder );
-		$activate      = isset( $args->activate ) ? (bool) $args->activate : true;
+		// Get all installed plugins
+		$all_plugins          = get_plugins();
+		$plugin_file          = '';
+		$resolved_plugin_name = '';
 
-		// Find the plugin file
-		$plugin_file = $this->find_plugin_file( $plugin_folder );
+				// Try to match by folder/slug (exact)
+		foreach ( $all_plugins as $file => $data ) {
+			$folder = dirname( $file );
+			if ( $plugin_input === $folder || $plugin_input === basename( $file, '.php' ) ) {
+				$plugin_file          = $file;
+				$resolved_plugin_name = isset( $data['Name'] ) ? $data['Name'] : $plugin_input;
+				break;
+			}
+		}
 
-		if ( ! $plugin_file ) {
+				// Try to match by plugin name (case-insensitive, exact)
+		if ( empty( $plugin_file ) ) {
+			foreach ( $all_plugins as $file => $data ) {
+				if ( isset( $data['Name'] ) && 0 === strcasecmp( $data['Name'], $plugin_input ) ) {
+					$plugin_file          = $file;
+					$resolved_plugin_name = $data['Name'];
+					break;
+				}
+			}
+		}
+
+				// Try partial match by plugin name (case-insensitive)
+		if ( empty( $plugin_file ) ) {
+			foreach ( $all_plugins as $file => $data ) {
+				if ( isset( $data['Name'] ) && false !== stripos( $data['Name'], $plugin_input ) ) {
+					$plugin_file          = $file;
+					$resolved_plugin_name = $data['Name'];
+					break;
+				}
+			}
+		}
+
+				// Try partial match by folder/slug
+		if ( empty( $plugin_file ) ) {
+			foreach ( $all_plugins as $file => $data ) {
+				$folder = dirname( $file );
+				if ( false !== stripos( $folder, $plugin_input ) ) {
+					$plugin_file          = $file;
+					$resolved_plugin_name = isset( $data['Name'] ) ? $data['Name'] : $plugin_input;
+					break;
+				}
+			}
+		}
+
+		if ( empty( $plugin_file ) ) {
 			return new WP_Error(
 				'plugin_not_found',
 				sprintf(
-					/* translators: %s: plugin folder name */
-					__( 'Plugin with folder name "%s" not found or not installed.', 'ai-assistant' ),
-					$plugin_folder
+					/* translators: %s: plugin name or folder */
+					__( 'Plugin with name or folder "%s" not found or not installed.', 'ai-assistant' ),
+					$plugin_input
 				)
 			);
 		}
 
-		// Get plugin data for name
-		$plugin_data = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin_file, false, false );
-		$plugin_name = ! empty( $plugin_data['Name'] ) ? $plugin_data['Name'] : $plugin_folder;
-
-		$output              = new stdClass();
-		$output->plugin_name = $plugin_name;
-		$output->plugin_file = $plugin_file;
+				$output              = new stdClass();
+				$output->plugin_name = $resolved_plugin_name;
+				$output->plugin_file = $plugin_file;
 
 		if ( $activate ) {
 			// Activate the plugin
@@ -107,7 +151,7 @@ class Activate_Plugin_Ability extends Abstract_Ability {
 				$output->message = sprintf(
 					/* translators: %s: plugin name */
 					__( 'Plugin "%s" is already active.', 'ai-assistant' ),
-					$plugin_name
+					$resolved_plugin_name
 				);
 				return $output;
 			}
@@ -118,7 +162,7 @@ class Activate_Plugin_Ability extends Abstract_Ability {
 				$output->message = sprintf(
 					/* translators: %1$s: plugin name, %2$s: error message */
 					__( 'Failed to activate plugin "%1$s": %2$s', 'ai-assistant' ),
-					$plugin_name,
+					$resolved_plugin_name,
 					$result->get_error_message()
 				);
 				return $output;
@@ -128,7 +172,7 @@ class Activate_Plugin_Ability extends Abstract_Ability {
 			$output->message = sprintf(
 				/* translators: %s: plugin name */
 				__( 'Plugin "%s" has been activated successfully.', 'ai-assistant' ),
-				$plugin_name
+				$resolved_plugin_name
 			);
 
 		} else {
@@ -138,7 +182,7 @@ class Activate_Plugin_Ability extends Abstract_Ability {
 				$output->message = sprintf(
 					/* translators: %s: plugin name */
 					__( 'Plugin "%s" is already inactive.', 'ai-assistant' ),
-					$plugin_name
+					$resolved_plugin_name
 				);
 				return $output;
 			}
@@ -149,53 +193,14 @@ class Activate_Plugin_Ability extends Abstract_Ability {
 			$output->message = sprintf(
 				/* translators: %s: plugin name */
 				__( 'Plugin "%s" has been deactivated successfully.', 'ai-assistant' ),
-				$plugin_name
+				$resolved_plugin_name
 			);
 		}
 
 		return $output;
 	}
 
-	/**
-	 * Find the main plugin file based on folder name.
-	 *
-	 * @param string $plugin_folder The plugin folder name.
-	 * @return string|false The plugin file path or false if not found.
-	 */
-	private function find_plugin_file( $plugin_folder ) {
-		$plugin_dir = WP_PLUGIN_DIR . '/' . $plugin_folder;
-
-		// Check if the folder exists
-		if ( ! is_dir( $plugin_dir ) ) {
-			return false;
-		}
-
-		// First, try the most common pattern: folder/folder.php
-		$main_file = $plugin_folder . '/' . $plugin_folder . '.php';
-		if ( file_exists( WP_PLUGIN_DIR . '/' . $main_file ) ) {
-			return $main_file;
-		}
-
-		// Get all installed plugins and search for ones in this folder
-		$all_plugins = get_plugins();
-		foreach ( $all_plugins as $plugin_file => $plugin_data ) {
-			$file_folder = dirname( $plugin_file );
-			if ( $file_folder === $plugin_folder ) {
-				return $plugin_file;
-			}
-		}
-
-		// If still not found, scan the directory for PHP files with plugin headers
-		$php_files = glob( $plugin_dir . '/*.php' );
-		foreach ( $php_files as $file ) {
-			$plugin_data = get_plugin_data( $file, false, false );
-			if ( ! empty( $plugin_data['Name'] ) ) {
-				return $plugin_folder . '/' . basename( $file );
-			}
-		}
-
-		return false;
-	}
+		// (find_plugin_file_by_name_or_slug is now obsolete and removed)
 
 	protected function permission_callback( $args ) {
 		$activate = isset( $args->activate ) ? (bool) $args->activate : true;

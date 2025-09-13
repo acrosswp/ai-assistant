@@ -274,7 +274,7 @@
             }
 
             // Build the reset endpoint URL
-            const resetUrl = validation.settings.messages_endpoint.replace('/messages', '/messages/reset');
+            const resetUrl = validation.settings.messages_endpoint.replace('/messages', '/messages/');
 
             utils.log('info', 'Clearing message history');
 
