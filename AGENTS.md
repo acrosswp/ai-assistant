@@ -732,8 +732,62 @@ By following these guidelines, you can create effective, reliable agents that en
 - Disable debug logging in production for performance.
 
 ### Empty Tool Calls Fix
-- The plugin avoids sending empty `tool_calls` (OpenAI) or `tools` (Anthropic) arrays to providers, preventing 400 errors.
-- This is handled in `Abstract_Agent` and `Chatbot_Messages_REST_Route` by only setting function_calling requirements when abilities are present.
+
+**Problem**: The OpenAI API returns a 400 error with message "Invalid 'messages[X].tool_calls': empty array" when receiving empty `tool_calls` arrays in messages.
+
+**Root Cause**: The WordPress PHP AI Client library's `AbstractOpenAiCompatibleTextGenerationModel` class was always including a `tool_calls` field in message data, even when the array was empty after filtering.
+
+**Solution**: Modified the `prepareMessagesParam` method in the AI Client library to only include `tool_calls` when there are actual tool calls present:
+
+```php
+// Build the message data
+$message_data = array(
+    'role'    => $this->getMessageRoleString( $message->getRole() ),
+    'content' => array_values(
+        array_filter(
+            array_map(
+                array( $this, 'getMessagePartContentData' ),
+                $messageParts
+            )
+        )
+    ),
+);
+
+// Only add tool_calls if there are actual tool calls (avoid empty arrays)
+$tool_calls = array_values(
+    array_filter(
+        array_map(
+            array( $this, 'getMessagePartToolCallData' ),
+            $messageParts
+        )
+    )
+);
+
+if ( ! empty( $tool_calls ) ) {
+    $message_data['tool_calls'] = $tool_calls;
+}
+
+return $message_data;
+```
+
+**Files Modified**:
+- `vendor/wordpress/php-ai-client/src/Providers/OpenAiCompatibleImplementation/AbstractOpenAiCompatibleTextGenerationModel.php` - Fixed empty tool_calls array issue
+- `includes/Agents/Abstract_Agent.php` - Contains additional safeguards
+- `includes/REST_Routes/Chatbot_Messages_REST_Route.php` - Enhanced error handling for this specific case
+
+**Error Logs Before Fix**:
+```
+Request failed with status 400: {
+  "error": {
+    "message": "Invalid 'messages[2].tool_calls': empty array. Expected non-empty array if provided.",
+    "type": "invalid_request_error",
+    "param": "messages[2].tool_calls",
+    "code": "invalid_request_error"
+  }
+}
+```
+
+**Expected Result**: The chatbot now works without the empty tool_calls error, even when no function calls are needed for the user's request.
 
 ### No Models Found Error Handling
 - Implements multi-level fallback if no model matches requirements: tries all requirements, then reduced, then defaults, then alternative providers.
