@@ -103,19 +103,33 @@ class Create_Post_Draft_Ability extends Abstract_Ability {
 	 *
 	 * @since 0.0.1
 	 *
-	 * @param stdClass $args The input arguments to the ability.
+	 * @param mixed $args The input arguments to the ability (array or object).
 	 * @return stdClass|WP_Error The result of the ability execution, or a WP_Error on failure.
 	 */
 	protected function execute_callback( $args ) {
+		// Accept both array and object input for compatibility
+		if ( is_object( $args ) ) {
+			$args = (array) $args;
+		}
+
+		// Validate required fields
+		if ( empty( $args['title'] ) || empty( $args['content'] ) ) {
+			return new WP_Error( 'missing_required_fields', __( 'Title and content are required.', 'ai-assistant' ) );
+		}
+
+		// Sanitize input
+		$title   = sanitize_text_field( $args['title'] );
+		$content = wp_kses_post( $args['content'] );
+
 		$postarr = array(
 			'post_type'    => 'post',
 			'post_status'  => 'draft',
-			'post_title'   => $args->title,
-			'post_content' => $args->content,
+			'post_title'   => $title,
+			'post_content' => $content,
 		);
 
-		if ( isset( $args->excerpt ) ) {
-			$postarr['post_excerpt'] = $args->excerpt;
+		if ( ! empty( $args['excerpt'] ) ) {
+			$postarr['post_excerpt'] = sanitize_text_field( $args['excerpt'] );
 		}
 
 		$post_id = wp_insert_post( $postarr, true );
@@ -123,8 +137,8 @@ class Create_Post_Draft_Ability extends Abstract_Ability {
 			return $post_id;
 		}
 
-		if ( isset( $args->featured_image_id ) ) {
-			set_post_thumbnail( $post_id, $args->featured_image_id );
+		if ( ! empty( $args['featured_image_id'] ) && is_numeric( $args['featured_image_id'] ) ) {
+			set_post_thumbnail( $post_id, intval( $args['featured_image_id'] ) );
 		}
 
 		$post = get_post( $post_id );

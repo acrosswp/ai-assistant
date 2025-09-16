@@ -1,5 +1,13 @@
 # WordPress AI Assistant: Comprehensive Documentation
 
+> **Important:**
+>
+> **Do not make any changes directly in the `vendor/` folder.**
+>
+> The `vendor/` directory is managed by Composer and all dependencies (including the WordPress PHP AI Client) must only be updated or changed by running Composer commands (e.g., `composer update` or `composer require`).
+>
+> Any manual edits to files in `vendor/` will be lost the next time Composer installs or updates dependencies. Always contribute fixes upstream or use Composer to manage dependency versions.
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
@@ -297,24 +305,33 @@ The plugin includes several built-in abilities:
 8. **Activate_Plugin_Ability**: Activates an installed plugin
 9. **Get_Active_Plugins_Ability**: Lists all active plugins on the site
 
+
 ### Abilities Registration
 
-The `Abilities_Registrar` class (`includes/Abilities/Abilities_Registrar.php`) handles registering all abilities with WordPress:
+The `Abilities_Registrar` class (`includes/Abilities/Abilities_Registrar.php`) registers all abilities with unique slugs. **As of the latest update, all abilities are registered using the `wp-ai-sdk-chatbot-demo/` prefix to ensure global uniqueness and compatibility with the registry pattern.**
 
 ```php
 class Abilities_Registrar {
     public function register_abilities(): void {
         \wp_register_ability(
-            'ai-assistant/get-post',
+            'wp-ai-sdk-chatbot-demo/get-post',
             array(
                 'label'         => __('Get Post', 'ai-assistant'),
                 'ability_class' => Get_Post_Ability::class,
             )
         );
-        // Additional abilities registration
+        // ...register all other abilities with the 'wp-ai-sdk-chatbot-demo/' prefix
     }
 }
 ```
+
+**Important:** When retrieving abilities in your code, always use the full registry slug, e.g.:
+
+```php
+$ability = wp_get_ability('wp-ai-sdk-chatbot-demo/get-post');
+```
+
+This ensures you get the shared, globally configured instance from the registry, not a new object.
 
 ### Adding New Abilities
 
@@ -322,11 +339,16 @@ To add a new ability:
 
 1. Create a class extending `Abstract_Ability`
 2. Implement required methods (description, input_schema, output_schema, execute_callback, permission_callback)
-3. Register the ability in `Abilities_Registrar`
-4. Add it to the abilities array in `Chatbot_Messages_REST_Route`
+3. Register the ability in `Abilities_Registrar` **using the `wp-ai-sdk-chatbot-demo/your-ability-slug` format**
+4. Add it to the abilities array in `Chatbot_Messages_REST_Route` using `wp_get_ability('wp-ai-sdk-chatbot-demo/your-ability-slug')`
 
 ## REST API Integration
 
+### Chatbot Messages REST Route
+
+The `Chatbot_Messages_REST_Route` class provides the core REST API endpoints for chatbot interactions:
+
+```php
 class Chatbot_Messages_REST_Route {
     private Provider_Manager $provider_manager;
     protected string $rest_namespace;
@@ -348,7 +370,92 @@ class Chatbot_Messages_REST_Route {
     // Helper methods
     protected function get_messages_history(): array
     protected function prepare_message_instances(array $messages): array
+
+    // OpenAI Thread Management (New in v1.1)
+    protected function get_or_create_openai_thread(string $session_id): array
+    protected function create_openai_thread_message(string $thread_id, string $content, string $role): array
+    protected function get_openai_thread_messages(string $thread_id): array
 }
+```
+
+### OpenAI Threads and Messages Integration
+
+Starting with version 1.1, the plugin includes full support for OpenAI's Threads and Messages API, providing persistent conversation tracking and improved context management.
+
+#### Key Features
+
+1. **Automatic Thread Management**: Each chat session automatically creates and manages an OpenAI thread
+2. **Message Persistence**: All messages are stored both locally and in OpenAI threads
+3. **Context Continuity**: Conversations maintain context across multiple interactions
+4. **Database Tracking**: Thread and message IDs are stored in the chat history for reference
+
+#### Implementation Details
+
+The plugin extends the existing chat history table with two new columns:
+- `thread_id`: Stores the OpenAI thread ID for conversation tracking
+- `message_id`: Stores the OpenAI message ID for individual message reference
+
+```sql
+ALTER TABLE wp_ai_assistant_chat_history
+ADD COLUMN thread_id VARCHAR(255) NULL,
+ADD COLUMN message_id VARCHAR(255) NULL;
+```
+
+#### OpenAI Thread Workflow
+
+When a user sends a message with OpenAI as the provider:
+
+1. **Thread Creation/Retrieval**: The system checks if a thread exists for the session ID, creates one if needed
+2. **Message Creation**: User messages are added to the OpenAI thread
+3. **AI Response**: The AI processes the thread and generates responses
+4. **Database Storage**: Both thread ID and message ID are stored in the chat history
+
+#### API Methods
+
+##### get_or_create_openai_thread()
+```php
+protected function get_or_create_openai_thread(string $session_id): array {
+    // Check for existing thread in chat history
+    // If not found, create new OpenAI thread
+    // Return array with success status and thread_id
+}
+```
+
+##### create_openai_thread_message()
+```php
+protected function create_openai_thread_message(string $thread_id, string $content, string $role): array {
+    // Create message in OpenAI thread
+    // Handle API errors gracefully
+    // Return array with success status and message_id
+}
+```
+
+##### get_openai_thread_messages()
+```php
+protected function get_openai_thread_messages(string $thread_id): array {
+    // Retrieve all messages from OpenAI thread
+    // Format messages for display
+    // Handle pagination if needed
+}
+```
+
+#### Error Handling
+
+The OpenAI integration includes comprehensive error handling:
+
+- **Thread Creation Errors**: Falls back to standard conversation flow
+- **Message Creation Errors**: Continues with local message storage
+- **API Rate Limits**: Implements retry logic with exponential backoff
+- **Authentication Errors**: Provides clear error messages
+
+#### Configuration
+
+OpenAI thread support is automatically enabled when:
+1. OpenAI is selected as the provider
+2. A valid OpenAI API key is configured
+3. The model supports the threads API
+
+No additional configuration is required - the feature works transparently with existing chatbot functionality.
 ```
 
 The class provides endpoints for:
@@ -705,21 +812,17 @@ if (empty($provider_id)) {
 
 ## Best Practices
 
+
 When working with the agent system:
 
-1. **Error Handling**: Always handle exceptions from agent steps, as they may occur due to API limits, model errors, or invalid function calls.
-
-2. **Function Declarations**: Provide clear, detailed function declarations with proper input schemas to help the AI model understand how to use abilities.
-
-3. **System Instructions**: Craft clear system instructions to guide the AI model's behavior.
-
-4. **Message Management**: Be mindful of message history size to avoid token limits.
-
-5. **Model Selection**: Choose appropriate models that support function calling when abilities are needed.
-
-6. **Permission Checks**: Always implement thorough permission checks in abilities to maintain WordPress security.
-
-7. **Testing**: Test agents with a variety of inputs and edge cases to ensure robust behavior.
+1. **Always use the registry for abilities**: Retrieve all abilities via `wp_get_ability('wp-ai-sdk-chatbot-demo/your-ability-slug')` to ensure shared configuration and compatibility.
+2. **Error Handling**: Always handle exceptions from agent steps, as they may occur due to API limits, model errors, or invalid function calls.
+3. **Function Declarations**: Provide clear, detailed function declarations with proper input schemas to help the AI model understand how to use abilities.
+4. **System Instructions**: Craft clear system instructions to guide the AI model's behavior.
+5. **Message Management**: Be mindful of message history size to avoid token limits.
+6. **Model Selection**: Choose appropriate models that support function calling when abilities are needed.
+7. **Permission Checks**: Always implement thorough permission checks in abilities to maintain WordPress security.
+8. **Testing**: Test agents with a variety of inputs and edge cases to ensure robust behavior.
 
 By following these guidelines, you can create effective, reliable agents that enhance WordPress with AI capabilities.
 

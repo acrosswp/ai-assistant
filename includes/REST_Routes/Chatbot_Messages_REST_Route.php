@@ -193,19 +193,43 @@ class Chatbot_Messages_REST_Route {
 			return rest_ensure_response( $result_message );
 		}
 
+		// Initialize thread and message tracking
+		$thread_id  = null;
+		$message_id = null;
+
 		try {
 			// Include our abilities
 			$abilities = array(
-				new \Ai_Assistant\Abilities\Get_Post_Ability(),
-				new \Ai_Assistant\Abilities\Create_Post_Draft_Ability(),
-				new \Ai_Assistant\Abilities\Publish_Post_Ability(),
-				new \Ai_Assistant\Abilities\Search_Posts_Ability(),
-				new \Ai_Assistant\Abilities\Generate_Post_Featured_Image_Ability(),
-				new \Ai_Assistant\Abilities\Set_Permalink_Structure_Ability(),
-				new \Ai_Assistant\Abilities\Install_Plugin_Ability(),
-				new \Ai_Assistant\Abilities\Activate_Plugin_Ability(),
-				new \Ai_Assistant\Abilities\Get_Active_Plugins_Ability(),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/get-post' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/create-post-draft' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/publish-post' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/search-posts' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/generate-post-featured-image' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/set-permalink-structure' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/install-plugin' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/activate-plugin' ),
+				wp_get_ability( 'wp-ai-sdk-chatbot-demo/get-active-plugins' ),
 			);
+
+			// Handle OpenAI thread/message creation if using OpenAI provider
+			if ( 'openai' === $provider_id ) {
+				// Get or create thread for this session
+				$thread_result = $this->get_or_create_openai_thread( $session_id );
+				if ( is_wp_error( $thread_result ) ) {
+					error_log( 'AI Assistant: Thread creation failed: ' . $thread_result->get_error_message() );
+				} else {
+					$thread_id = $thread_result;
+
+					// Create message in thread
+					$user_message_text = $this->extract_text_from_message( $new_message );
+					$message_result    = $this->create_openai_thread_message( $thread_id, $user_message_text, 'user' );
+					if ( is_wp_error( $message_result ) ) {
+						error_log( 'AI Assistant: Message creation failed: ' . $message_result->get_error_message() );
+					} else {
+						$message_id = $message_result;
+					}
+				}
+			}
 
 			// Check if the selected model supports function calling
 			$selected_model       = get_option( 'ai_assistant_selected_model', '' );
@@ -333,6 +357,8 @@ class Chatbot_Messages_REST_Route {
 					'plugin_version'   => $plugin_version,
 					'wp_version'       => $wp_version,
 					'site_url'         => $site_url,
+					'thread_id'        => $thread_id,
+					'message_id'       => $message_id,
 				)
 			);
 
@@ -449,6 +475,8 @@ class Chatbot_Messages_REST_Route {
 					'plugin_version'   => $plugin_version,
 					'wp_version'       => $wp_version,
 					'site_url'         => $site_url,
+					'thread_id'        => $thread_id ?? null,
+					'message_id'       => $message_id ?? null,
 				)
 			);
 		}
@@ -668,6 +696,8 @@ class Chatbot_Messages_REST_Route {
 				'plugin_version'   => $args['plugin_version'],
 				'wp_version'       => $args['wp_version'],
 				'site_url'         => $args['site_url'],
+				'thread_id'        => $args['thread_id'] ?? null,
+				'message_id'       => $args['message_id'] ?? null,
 			),
 			array(
 				'%d',
@@ -694,6 +724,8 @@ class Chatbot_Messages_REST_Route {
 				'%s',
 				'%s',
 				'%s',
+				'%s',
+				'%s',
 			)
 		);
 	}
@@ -713,7 +745,167 @@ class Chatbot_Messages_REST_Route {
 		}
 		return '';
 	}
-}
 
-// Register table creation on plugin activation
-register_activation_hook( __FILE__, array( '\Ai_Assistant\REST_Routes\Chatbot_Messages_REST_Route', 'create_chat_history_table' ) );
+	/**
+	 * Creates or retrieves an OpenAI thread for the current user session.
+	 *
+	 * @since 0.0.1
+	 *
+	 * @param string $session_id The session ID.
+	 * @return string|WP_Error Thread ID or error.
+	 */
+	private function get_or_create_openai_thread( string $session_id ) {
+		// Check if we already have a thread for this session
+		$existing_thread_id = get_user_meta( get_current_user_id(), 'ai_assistant_thread_' . $session_id, true );
+
+		if ( ! empty( $existing_thread_id ) ) {
+			return $existing_thread_id;
+		}
+
+		// Create a new thread via OpenAI API
+		$provider_id = $this->provider_manager->get_current_provider_id();
+		if ( 'openai' !== $provider_id ) {
+			return new WP_Error( 'not_openai_provider', 'Thread creation only supported for OpenAI provider.' );
+		}
+
+		try {
+			$ai_client       = $this->provider_manager->get_ai_client();
+			$registry        = $ai_client->get_registry();
+			$openai_provider = $registry->get_provider( 'openai' );
+
+			// Make direct API call to create thread
+			$api_key = get_option( 'ai_assistant_provider_credentials', array() )['openai'] ?? '';
+			if ( empty( $api_key ) ) {
+				return new WP_Error( 'missing_api_key', 'OpenAI API key not configured.' );
+			}
+
+			$response = wp_remote_post(
+				'https://api.openai.com/v1/threads',
+				array(
+					'headers' => array(
+						'Authorization' => 'Bearer ' . $api_key,
+						'Content-Type'  => 'application/json',
+						'OpenAI-Beta'   => 'assistants=v2',
+					),
+					'body'    => wp_json_encode( array() ),
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			$body = wp_remote_retrieve_body( $response );
+			$data = json_decode( $body, true );
+
+			if ( ! isset( $data['id'] ) ) {
+				return new WP_Error( 'thread_creation_failed', 'Failed to create OpenAI thread.' );
+			}
+
+			$thread_id = $data['id'];
+
+			// Store thread ID for this session
+			update_user_meta( get_current_user_id(), 'ai_assistant_thread_' . $session_id, $thread_id );
+
+			return $thread_id;
+
+		} catch ( Exception $e ) {
+			return new WP_Error( 'thread_creation_error', $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Creates a message in an OpenAI thread.
+	 *
+	 * @since 0.0.1
+	 *
+	 * @param string $thread_id The thread ID.
+	 * @param string $content   The message content.
+	 * @param string $role      The message role (default: 'user').
+	 * @return string|WP_Error Message ID or error.
+	 */
+	private function create_openai_thread_message( string $thread_id, string $content, string $role = 'user' ) {
+		$api_key = get_option( 'ai_assistant_provider_credentials', array() )['openai'] ?? '';
+		if ( empty( $api_key ) ) {
+			return new WP_Error( 'missing_api_key', 'OpenAI API key not configured.' );
+		}
+
+		try {
+			$response = wp_remote_post(
+				"https://api.openai.com/v1/threads/{$thread_id}/messages",
+				array(
+					'headers' => array(
+						'Authorization' => 'Bearer ' . $api_key,
+						'Content-Type'  => 'application/json',
+						'OpenAI-Beta'   => 'assistants=v2',
+					),
+					'body'    => wp_json_encode(
+						array(
+							'role'    => $role,
+							'content' => $content,
+						)
+					),
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			$body = wp_remote_retrieve_body( $response );
+			$data = json_decode( $body, true );
+
+			if ( ! isset( $data['id'] ) ) {
+				return new WP_Error( 'message_creation_failed', 'Failed to create OpenAI message.' );
+			}
+
+			return $data['id'];
+
+		} catch ( Exception $e ) {
+			return new WP_Error( 'message_creation_error', $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Retrieves messages from an OpenAI thread.
+	 *
+	 * @since 0.0.1
+	 *
+	 * @param string $thread_id The thread ID.
+	 * @return array|WP_Error Array of messages or error.
+	 */
+	private function get_openai_thread_messages( string $thread_id ) {
+		$api_key = get_option( 'ai_assistant_provider_credentials', array() )['openai'] ?? '';
+		if ( empty( $api_key ) ) {
+			return new WP_Error( 'missing_api_key', 'OpenAI API key not configured.' );
+		}
+
+		try {
+			$response = wp_remote_get(
+				"https://api.openai.com/v1/threads/{$thread_id}/messages",
+				array(
+					'headers' => array(
+						'Authorization' => 'Bearer ' . $api_key,
+						'OpenAI-Beta'   => 'assistants=v2',
+					),
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			$body = wp_remote_retrieve_body( $response );
+			$data = json_decode( $body, true );
+
+			if ( ! isset( $data['data'] ) ) {
+				return new WP_Error( 'message_retrieval_failed', 'Failed to retrieve OpenAI messages.' );
+			}
+
+			return $data['data'];
+
+		} catch ( Exception $e ) {
+			return new WP_Error( 'message_retrieval_error', $e->getMessage() );
+		}
+	}
+}

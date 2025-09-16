@@ -23,7 +23,7 @@ class Abilities_Registrar {
 	public function register_abilities(): void {
 
 		\wp_register_ability(
-			'ai-assistant/get-post',
+			'wp-ai-sdk-chatbot-demo/get-post',
 			array(
 				'label'         => __( 'Get Post', 'ai-assistant' ),
 				'ability_class' => Get_Post_Ability::class,
@@ -31,7 +31,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/create-post-draft',
+			'wp-ai-sdk-chatbot-demo/create-post-draft',
 			array(
 				'label'         => __( 'Create Post Draft', 'ai-assistant' ),
 				'ability_class' => Create_Post_Draft_Ability::class,
@@ -39,7 +39,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/generate-post-featured-image',
+			'wp-ai-sdk-chatbot-demo/generate-post-featured-image',
 			array(
 				'label'         => __( 'Generate Post Featured Image', 'ai-assistant' ),
 				'ability_class' => Generate_Post_Featured_Image_Ability::class,
@@ -47,7 +47,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/publish-post',
+			'wp-ai-sdk-chatbot-demo/publish-post',
 			array(
 				'label'         => __( 'Publish Post', 'ai-assistant' ),
 				'ability_class' => Publish_Post_Ability::class,
@@ -55,7 +55,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/search-posts',
+			'wp-ai-sdk-chatbot-demo/search-posts',
 			array(
 				'label'         => __( 'Search Posts', 'ai-assistant' ),
 				'ability_class' => Search_Posts_Ability::class,
@@ -63,7 +63,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/set-permalink-structure',
+			'wp-ai-sdk-chatbot-demo/set-permalink-structure',
 			array(
 				'label'         => __( 'Set Permalink Structure', 'ai-assistant' ),
 				'ability_class' => Set_Permalink_Structure_Ability::class,
@@ -71,7 +71,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/install-plugin',
+			'wp-ai-sdk-chatbot-demo/install-plugin',
 			array(
 				'label'         => __( 'Install Plugin', 'ai-assistant' ),
 				'ability_class' => Install_Plugin_Ability::class,
@@ -79,7 +79,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/activate-plugin',
+			'wp-ai-sdk-chatbot-demo/activate-plugin',
 			array(
 				'label'         => __( 'Activate Plugin', 'ai-assistant' ),
 				'ability_class' => Activate_Plugin_Ability::class,
@@ -87,7 +87,7 @@ class Abilities_Registrar {
 		);
 
 		\wp_register_ability(
-			'ai-assistant/get-active-plugins',
+			'wp-ai-sdk-chatbot-demo/get-active-plugins',
 			array(
 				'label'         => __( 'Get Active Plugins', 'ai-assistant' ),
 				'ability_class' => Get_Active_Plugins_Ability::class,

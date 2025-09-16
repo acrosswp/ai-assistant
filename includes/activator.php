@@ -35,6 +35,7 @@ class Activator {
 	 */
 	public static function activate() {
 		self::create_chat_history_table();
+		self::update_chat_history_table();
 	}
 
 	/**
@@ -71,14 +72,72 @@ class Activator {
 			plugin_version VARCHAR(32),
 			wp_version VARCHAR(32),
 			site_url VARCHAR(255),
+			thread_id VARCHAR(255) NULL,
+			message_id VARCHAR(255) NULL,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			KEY user_id (user_id),
 			KEY session_id (session_id),
+			KEY thread_id (thread_id),
 			KEY created_at (created_at)
 		) $charset_collate;";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+	}
+
+	/**
+	 * Updates the chat history table to add new columns for existing installations.
+	 *
+	 * @since 1.1.0
+	 */
+	public static function update_chat_history_table() {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'ai_assistant_chat_history';
+
+		// Check if the new columns exist
+		$thread_id_exists = $wpdb->get_results(
+			$wpdb->prepare(
+				'SHOW COLUMNS FROM %i LIKE %s',
+				$table_name,
+				'thread_id'
+			)
+		);
+
+		$message_id_exists = $wpdb->get_results(
+			$wpdb->prepare(
+				'SHOW COLUMNS FROM %i LIKE %s',
+				$table_name,
+				'message_id'
+			)
+		);
+
+		// Add thread_id column if it doesn't exist
+		if ( empty( $thread_id_exists ) ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					'ALTER TABLE %i ADD COLUMN `thread_id` VARCHAR(255) NULL AFTER `site_url`',
+					$table_name
+				)
+			);
+
+			// Add index for thread_id
+			$wpdb->query(
+				$wpdb->prepare(
+					'ALTER TABLE %i ADD KEY `thread_id` (`thread_id`)',
+					$table_name
+				)
+			);
+		}
+
+		// Add message_id column if it doesn't exist
+		if ( empty( $message_id_exists ) ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					'ALTER TABLE %i ADD COLUMN `message_id` VARCHAR(255) NULL AFTER `thread_id`',
+					$table_name
+				)
+			);
+		}
 	}
 }
