@@ -26,19 +26,13 @@ abstract class Abstract_Ability extends WP_Ability {
 	 * @since 0.0.1
 	 *
 	 * @param string              $name       The name of the ability.
-	 * @param array<string,mixed> $properties The properties of the ability. Must include `label`.
-	 *
-	 * @throws InvalidArgumentException Thrown if the label property is missing or invalid.
+	 * @param array<string,mixed> $properties The properties of the ability.
 	 */
 	public function __construct( string $name, array $properties = array() ) {
-		if ( ! isset( $properties['label'] ) || ! is_string( $properties['label'] ) ) {
-			throw new InvalidArgumentException( 'The "label" property is required and must be a string.' );
-		}
-
-		parent::__construct(
-			$name,
+		// Build the full properties array with our dynamic values
+		$full_properties = array_merge(
+			$properties,
 			array(
-				'label'               => $properties['label'],
 				'description'         => $this->description(),
 				'input_schema'        => $this->input_schema(),
 				'output_schema'       => $this->output_schema(),
@@ -46,6 +40,8 @@ abstract class Abstract_Ability extends WP_Ability {
 				'permission_callback' => array( $this, 'permission_callback' ),
 			)
 		);
+
+		parent::__construct( $name, $full_properties );
 	}
 
 	/**

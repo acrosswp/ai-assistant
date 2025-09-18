@@ -28,9 +28,12 @@ class Generate_Post_Featured_Image_Ability extends Abstract_Ability {
 	 * Constructor.
 	 *
 	 * @since 0.0.1
+	 *
+	 * @param string              $name       The name of the ability.
+	 * @param array<string,mixed> $properties The properties of the ability.
 	 */
-	public function __construct() {
-		parent::__construct( 'generate-post-featured-image', array( 'label' => __( 'Generate Post Featured Image', 'ai-assistant' ) ) );
+	public function __construct( string $name, array $properties = array() ) {
+		parent::__construct( $name, $properties );
 	}
 
 	/**

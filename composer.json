@@ -8,6 +8,7 @@
     "require": {
         "php": ">=8.0",
         "wordpress/php-ai-client": "^0.1.0",
+        "wordpress/abilities-api": "^0.1.1",
         "guzzlehttp/guzzle": "^7.0"
     },
     "keywords": [

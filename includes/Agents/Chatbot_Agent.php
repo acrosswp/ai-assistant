@@ -109,7 +109,31 @@ class Chatbot_Agent extends Abstract_Agent {
 		}
 
 		try {
-			$model  = AiClient::defaultRegistry()->getProviderModel( $provider_id, $model_id );
+			// Special handling for OpenAI to use our custom model that fixes the empty tool_calls issue
+			if ( 'openai' === $provider_id ) {
+				error_log( '[AI Assistant] Using custom OpenAI model to fix empty tool_calls issue' );
+				$registry = AiClient::defaultRegistry();
+
+				// Get the original model to copy its metadata and configuration
+				$original_model = $registry->getProviderModel( $provider_id, $model_id );
+
+				// Create our custom model with the same metadata and provider info
+				$model = new \Ai_Assistant\Providers\OpenAI\OpenAI_Text_Generation_Model(
+					$original_model->metadata(),
+					$original_model->providerMetadata()
+				);
+
+				// Copy the configuration from the original model
+				$model->setConfig( $original_model->getConfig() );
+
+				// Bind dependencies (HTTP transporter, authentication) using the registry
+				$registry->bindModelDependencies( $model );
+				error_log( '[AI Assistant] Successfully created custom OpenAI model instance' );
+			} else {
+				// Use the standard model for other providers
+				$model = AiClient::defaultRegistry()->getProviderModel( $provider_id, $model_id );
+			}
+
 			$prompt = $prompt->usingModel( $model );
 		} catch ( \Exception $e ) {
 			error_log( 'AI Assistant: Error getting model: ' . $e->getMessage() );

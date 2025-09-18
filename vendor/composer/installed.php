@@ -3,7 +3,7 @@
         'name' => 'wpboilerplate/ai-assistant',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '5c10e575a394511b3a96e677c6f6e1f5b841f0c2',
+        'reference' => 'b07bb769d5136fcb03f4e3f87e40166a9dc72a05',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -159,6 +159,15 @@
             ),
             'dev_requirement' => false,
         ),
+        'wordpress/abilities-api' => array(
+            'pretty_version' => 'v0.1.1',
+            'version' => '0.1.1.0',
+            'reference' => '21af812bc2dc3677aa71b3a6875dc5407a477adf',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../wordpress/abilities-api',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'wordpress/php-ai-client' => array(
             'pretty_version' => '0.1.0',
             'version' => '0.1.0.0',
@@ -171,7 +180,7 @@
         'wpboilerplate/ai-assistant' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '5c10e575a394511b3a96e677c6f6e1f5b841f0c2',
+            'reference' => 'b07bb769d5136fcb03f4e3f87e40166a9dc72a05',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

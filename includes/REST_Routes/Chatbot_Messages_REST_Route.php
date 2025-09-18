@@ -187,15 +187,53 @@ class Chatbot_Messages_REST_Route {
 		}
 
 		try {
-			// Include our abilities
-			$abilities = array(
-				new \Ai_Assistant\Abilities\Get_Post_Ability(),
-				new \Ai_Assistant\Abilities\Create_Post_Draft_Ability(),
-				new \Ai_Assistant\Abilities\Publish_Post_Ability(),
-				new \Ai_Assistant\Abilities\Search_Posts_Ability(),
-				new \Ai_Assistant\Abilities\Generate_Post_Featured_Image_Ability(),
-				new \Ai_Assistant\Abilities\Set_Permalink_Structure_Ability(),
+			// Ensure abilities are registered before trying to use them
+			if ( function_exists( 'wp_get_abilities' ) ) {
+				// Force abilities registry initialization
+				wp_get_abilities(); // This will trigger abilities_api_init if not already done
+			}
+
+			// Get our registered abilities instead of manually instantiating them
+			$abilities = array();
+
+			// Get each registered ability by ID
+			$ability_ids = array(
+				'ai-assistant/get-post',
+				'ai-assistant/create-post-draft',
+				'ai-assistant/publish-post',
+				'ai-assistant/search-posts',
+				'ai-assistant/generate-post-featured-image',
+				'ai-assistant/set-permalink-structure',
 			);
+
+			foreach ( $ability_ids as $ability_id ) {
+				$ability = wp_get_ability( $ability_id );
+				if ( $ability ) {
+					$abilities[] = $ability;
+				} else {
+					error_log( "AI Assistant: Ability '{$ability_id}' not found during registration check" );
+				}
+			}
+
+			// Debug: Log how many abilities were found
+			error_log( 'AI Assistant: Found ' . count( $abilities ) . ' abilities for chatbot agent' );
+
+			// If no abilities were found, fall back to manual instantiation to prevent empty tool_calls
+			if ( empty( $abilities ) ) {
+				error_log( 'AI Assistant: NO ABILITIES FOUND - falling back to manual instantiation' );
+
+				// Fallback: manually instantiate abilities if wp_get_ability fails
+				$abilities = array(
+					new \Ai_Assistant\Abilities\Get_Post_Ability( 'ai-assistant/get-post', array( 'label' => __( 'Get Post', 'ai-assistant' ) ) ),
+					new \Ai_Assistant\Abilities\Create_Post_Draft_Ability( 'ai-assistant/create-post-draft', array( 'label' => __( 'Create Post Draft', 'ai-assistant' ) ) ),
+					new \Ai_Assistant\Abilities\Publish_Post_Ability( 'ai-assistant/publish-post', array( 'label' => __( 'Publish Post', 'ai-assistant' ) ) ),
+					new \Ai_Assistant\Abilities\Search_Posts_Ability( 'ai-assistant/search-posts', array( 'label' => __( 'Search Posts', 'ai-assistant' ) ) ),
+					new \Ai_Assistant\Abilities\Generate_Post_Featured_Image_Ability( 'ai-assistant/generate-post-featured-image', array( 'label' => __( 'Generate Post Featured Image', 'ai-assistant' ) ) ),
+					new \Ai_Assistant\Abilities\Set_Permalink_Structure_Ability( 'ai-assistant/set-permalink-structure', array( 'label' => __( 'Set Permalink Structure', 'ai-assistant' ) ) ),
+				);
+
+				error_log( 'AI Assistant: Created ' . count( $abilities ) . ' abilities through fallback instantiation' );
+			}
 
 			$agent = new Chatbot_Agent( $this->provider_manager, $abilities, $message_instances );
 			do {

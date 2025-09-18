@@ -208,22 +208,47 @@ abstract class Abstract_Agent implements Agent {
 	}
 
 	/**
-	 * Gets the function declarations for the abilities available to the agent.
+	 * Gets the function declarations for all abilities.
 	 *
 	 * @since 0.0.1
 	 *
 	 * @return array<FunctionDeclaration> The function declarations.
 	 */
-	public function get_function_declarations(): array {
+	protected function get_function_declarations(): array {
 		$function_declarations = array();
-		foreach ( $this->abilities_map as $ability ) {
-			if ( method_exists( $ability, 'get_function_declaration' ) ) {
-				$function_declarations[] = $ability->get_function_declaration();
-			} else {
-				// Fallback for abilities that don't implement get_function_declaration
-				error_log( 'Ability ' . $ability->get_name() . ' does not implement get_function_declaration method.' );
+
+		foreach ( $this->abilities_map as $sanitized_name => $ability ) {
+			try {
+				// Use the ability's built-in method to get function declaration
+				if ( method_exists( $ability, 'get_function_declaration' ) ) {
+					$declaration = $ability->get_function_declaration();
+					// Override the name with the sanitized version
+					$function_declarations[] = new FunctionDeclaration(
+						$sanitized_name,
+						$declaration->getDescription(),
+						$declaration->getParameters()
+					);
+				} else {
+					// Fallback: manually create function declaration
+					$description       = $ability->get_description();
+					$parameters_schema = array(
+						'type'       => 'object',
+						'properties' => array(),
+						'required'   => array(),
+					);
+
+					$function_declarations[] = new FunctionDeclaration(
+						$sanitized_name,
+						$description,
+						$parameters_schema
+					);
+				}
+			} catch ( Exception $e ) {
+				// Log error but continue with other abilities
+				error_log( 'AI Assistant: Error creating function declaration for ability: ' . $e->getMessage() );
 			}
 		}
+
 		return $function_declarations;
 	}
 
@@ -239,6 +264,9 @@ abstract class Abstract_Agent implements Agent {
 		$function_calls              = array();
 		$invalid_function_call_names = array();
 
+		// Debug logging
+		error_log( '[AI Assistant Debug] Extracting function calls from message' );
+
 		// Check if the message has tool_calls
 		$has_function_calls = false;
 		foreach ( $message->getParts() as $part ) {
@@ -247,6 +275,8 @@ abstract class Abstract_Agent implements Agent {
 				break;
 			}
 		}
+
+		error_log( '[AI Assistant Debug] Has function calls: ' . ( $has_function_calls ? 'yes' : 'no' ) );
 
 		// If the message has no function calls, early return to avoid empty tool_calls array
 		if ( ! $has_function_calls ) {
@@ -260,16 +290,26 @@ abstract class Abstract_Agent implements Agent {
 
 			$function_call = $part->getFunctionCall();
 			if ( ! $function_call ) {
+				error_log( '[AI Assistant Debug] Function call part found but getFunctionCall() returned null' );
 				continue;
 			}
 
-			$sanitized_name = $this->sanitize_function_name( $function_call->getName() );
+			$original_name  = $function_call->getName();
+			$sanitized_name = $this->sanitize_function_name( $original_name );
+
+			error_log( "[AI Assistant Debug] Processing function call: '{$original_name}' -> '{$sanitized_name}'" );
+
 			if ( $this->find_ability_by_name( $sanitized_name ) ) {
 				$function_calls[] = $function_call;
+				error_log( "[AI Assistant Debug] Function call '{$sanitized_name}' matched to ability - VALID" );
 			} else {
-				$invalid_function_call_names[] = $function_call->getName();
+				$invalid_function_call_names[] = $original_name;
+				error_log( "[AI Assistant Debug] Function call '{$sanitized_name}' NOT found in abilities map - INVALID" );
+				error_log( '[AI Assistant Debug] Available abilities: ' . implode( ', ', array_keys( $this->abilities_map ) ) );
 			}
 		}
+
+		error_log( '[AI Assistant Debug] Extract result - Valid calls: ' . count( $function_calls ) . ', Invalid calls: ' . count( $invalid_function_call_names ) );
 
 		return array( $function_calls, $invalid_function_call_names );
 	}

@@ -21,9 +21,12 @@ class Search_Posts_Ability extends Abstract_Ability {
 	 * Constructor.
 	 *
 	 * @since 0.0.1
+	 *
+	 * @param string              $name       The name of the ability.
+	 * @param array<string,mixed> $properties The properties of the ability.
 	 */
-	public function __construct() {
-		parent::__construct( 'search-posts', array( 'label' => __( 'Search Posts', 'ai-assistant' ) ) );
+	public function __construct( string $name, array $properties = array() ) {
+		parent::__construct( $name, $properties );
 	}
 
 	/**

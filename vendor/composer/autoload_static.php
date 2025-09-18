@@ -10,6 +10,7 @@ class ComposerStaticInit0464e1d2d7ae73f0b78a9266e0d0de36
         '7b11c4dc42b3b3023073cb14e519683c' => __DIR__ . '/..' . '/ralouphie/getallheaders/src/getallheaders.php',
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
         '37a3dc5111fe8f707ab4c132ef1dbc62' => __DIR__ . '/..' . '/guzzlehttp/guzzle/src/functions_include.php',
+        '2d223b650b5c56928c1affa16ee5cfe2' => __DIR__ . '/..' . '/wordpress/abilities-api/includes/bootstrap.php',
         'b952b7bb71a5e8271abe3f2cc08a14a8' => __DIR__ . '/..' . '/wordpress/php-ai-client/src/polyfills.php',
     );
 
