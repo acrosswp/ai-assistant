@@ -7,8 +7,25 @@
     "minimum-stability": "dev",
     "require": {
         "php": ">=7.4",
-        "coenjacobs/mozart": "^0.7"
+        "coenjacobs/mozart": "^0.7",
+        "wordpress/abilities-api": "dev-trunk",
+        "wordpress/mcp-adapter": "dev-trunk",
+        "wordpress/php-ai-client": "dev-trunk"
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/WordPress/abilities-api.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/WordPress/mcp-adapter.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/WordPress/php-ai-client.git"
+        }
+    ],
     "keywords": [
         "wordpress",
         "plugin"
@@ -45,5 +62,10 @@
         "post-update-cmd": [
             "\"vendor/bin/mozart\" compose"
         ]
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
     }
 }
