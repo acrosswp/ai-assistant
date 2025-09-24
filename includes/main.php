@@ -227,24 +227,35 @@ final class Main {
 	}
 
 	/**
-	 * Load the required composer dependencies for this plugin.
-	 *
-	 * @since    0.0.1
-	 * @access   private
+	 * Load composer dependencies if available
 	 */
 	private function load_composer_dependencies() {
+		$plugin_path = \AI_ASSISTANT_PLUGIN_PATH;
 
-		/**
-		 * Add composer file
-		 */
-		$plugin_path = AI_ASSISTANT_PLUGIN_PATH;
-
+		// Check if composer autoloader exists and the vendor directory is properly set up
 		if ( file_exists( $plugin_path . 'vendor/autoload.php' ) ) {
+			// Check if critical dependency directories exist
+			$required_dirs = array(
+				'guzzlehttp/guzzle',
+				'php-http/guzzle7-adapter',
+			);
+
+			$all_dependencies_exist = true;
+			foreach ( $required_dirs as $dir ) {
+				if ( ! is_dir( $plugin_path . 'vendor/' . $dir ) ) {
+					$all_dependencies_exist = false;
+					break;
+				}
+			}
+
+			if ( ! $all_dependencies_exist ) {
+				error_log( 'AI Assistant: HTTP client dependencies are missing. Using fallback client only.' );
+				return;
+			}
+
 			require_once $plugin_path . 'vendor/autoload.php';
 		}
-	}
-
-	/**
+	}   /**
 	 * Load the required dependencies for this plugin.
 	 *
 	 * Include the following files that make up the plugin:
@@ -305,6 +316,23 @@ final class Main {
 		$this->loader->add_action( 'plugin_action_links', $main_menu, 'plugin_action_links', 1000, 2 );
 		// Register settings section and fields
 		$this->loader->add_action( 'admin_init', '\Ai_Assistant\Admin\Partials\Menu', 'register_settings' );
+
+		/**
+		 * Initialize User Capabilities
+		 */
+		User_Capabilities::init();
+
+		/**
+		 * Initialize REST API Routes
+		 */
+		$rest_routes = new Chatbot_REST_Routes();
+		$this->loader->add_action( 'rest_api_init', $rest_routes, 'register_routes' );
+
+		/**
+		 * Enqueue chatbot assets
+		 */
+		$this->loader->add_action( 'admin_enqueue_scripts', $this, 'enqueue_chatbot_assets' );
+		$this->loader->add_action( 'admin_footer', $this, 'render_chatbot_container' );
 	}
 
 	/**
@@ -371,5 +399,61 @@ final class Main {
 	 */
 	public function get_version() {
 		return $this->version;
+	}
+
+	/**
+	 * Enqueue chatbot assets
+	 *
+	 * @since     0.0.1
+	 */
+	public function enqueue_chatbot_assets() {
+		// Early bailout if AI features are not available
+		$ai_client_manager = AI_Client_Manager::instance();
+		if ( ! $ai_client_manager->can_use_ai() ) {
+			return;
+		}
+
+		// Enqueue chatbot assets only on admin pages
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		// Get current screen
+		$screen = get_current_screen();
+		if ( ! $screen ) {
+			return;
+		}
+
+		// Load chatbot on all admin pages
+		wp_localize_script(
+			$this->plugin_name,
+			'aiAssistantChatbot',
+			array(
+				'enabled'     => true,
+				'apiUrl'      => rest_url( 'ai-assistant/v1/' ),
+				'nonce'       => wp_create_nonce( 'wp_rest' ),
+				'currentUser' => wp_get_current_user(),
+			)
+		);
+	}
+
+	/**
+	 * Render chatbot container
+	 *
+	 * @since     0.0.1
+	 */
+	public function render_chatbot_container() {
+		// Early bailout if AI features are not available
+		$ai_client_manager = AI_Client_Manager::instance();
+		if ( ! $ai_client_manager->can_use_ai() ) {
+			return;
+		}
+
+		// Only render on admin pages
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		echo '<div id="ai-assistant-chatbot-root"></div>';
 	}
 }

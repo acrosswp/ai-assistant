@@ -69,7 +69,7 @@ class Menu {
 	}
 
 		/**
-		 * Settings page for AI SDK Chatbot Demo
+		 * Settings page for AI Assistant
 		 */
 	public function about() {
 		// Early bailout for permissions
@@ -77,14 +77,46 @@ class Menu {
 			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'ai-assistant' ) );
 		}
 
+		$ai_client_manager = \Ai_Assistant\Includes\AI_Client_Manager::instance();
+		$current_provider  = $ai_client_manager->get_current_provider_id();
+		$can_use_ai        = $ai_client_manager->can_use_ai();
+
 		echo '<div class="wrap">';
-			echo '<h1>' . esc_html__( 'AI SDK Chatbot Demo Settings', 'ai-assistant' ) . '</h1>';
+			echo '<h1>' . esc_html__( 'AI Assistant Settings', 'ai-assistant' ) . '</h1>';
+
+			// Show status
+			echo '<div class="notice notice-' . ( $can_use_ai ? 'success' : 'warning' ) . '">';
+				echo '<p>';
+		if ( $can_use_ai ) {
+			echo '<strong>' . esc_html__( 'AI Assistant is active and ready to use!', 'ai-assistant' ) . '</strong>';
+			echo '<br>' . sprintf(
+				/* translators: %s: provider name */
+				esc_html__( 'Current provider: %s', 'ai-assistant' ),
+				esc_html( $current_provider )
+			);
+		} else {
+			echo '<strong>' . esc_html__( 'AI Assistant needs configuration', 'ai-assistant' ) . '</strong>';
+			echo '<br>' . esc_html__( 'Please configure your API credentials and select a provider below.', 'ai-assistant' );
+		}
+				echo '</p>';
+			echo '</div>';
 
 			echo '<form method="post" action="options.php">';
 				settings_fields( 'ai_assistant_settings_group' );
 				do_settings_sections( 'ai_assistant_settings' );
 				submit_button( esc_html__( 'Save Changes', 'ai-assistant' ) );
 			echo '</form>';
+
+			// Instructions
+			echo '<div class="card">';
+				echo '<h2>' . esc_html__( 'How to Use', 'ai-assistant' ) . '</h2>';
+				echo '<p>' . esc_html__( 'Once configured, the AI Assistant chatbot will appear as a floating button in the bottom-right corner of your admin pages.', 'ai-assistant' ) . '</p>';
+				echo '<ul>';
+					echo '<li>' . esc_html__( 'Click the "Need Help?" button to open the chatbot', 'ai-assistant' ) . '</li>';
+					echo '<li>' . esc_html__( 'Type your questions about WordPress and get instant AI-powered assistance', 'ai-assistant' ) . '</li>';
+					echo '<li>' . esc_html__( 'Use the reset button to clear your chat history', 'ai-assistant' ) . '</li>';
+				echo '</ul>';
+			echo '</div>';
 		echo '</div>';
 	}
 	/**

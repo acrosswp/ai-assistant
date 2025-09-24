@@ -10,7 +10,9 @@
         "coenjacobs/mozart": "^0.7",
         "wordpress/abilities-api": "dev-trunk",
         "wordpress/mcp-adapter": "dev-trunk",
-        "wordpress/php-ai-client": "dev-trunk"
+        "wordpress/php-ai-client": "dev-trunk",
+        "guzzlehttp/guzzle": "^7.0",
+        "php-http/guzzle7-adapter": "^1.0"
     },
     "repositories": [
         {
@@ -51,7 +53,13 @@
             "dep_directory": "/vendor/",
             "classmap_directory": "/classes/",
             "classmap_prefix": "Ai_Assistant_",
-            "packages": [],
+            "packages": [
+                "guzzlehttp/guzzle",
+                "php-http/guzzle7-adapter",
+                "wordpress/php-ai-client",
+                "wordpress/abilities-api",
+                "wordpress/mcp-adapter"
+            ],
             "excluded_packages": []
         }
     },
