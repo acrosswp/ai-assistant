@@ -5,7 +5,10 @@
     "description": "Composer to autoload the condition checking for which this add-on is made",
     "homepage": "https://github.com/WPBoilerplate/",
     "minimum-stability": "dev",
-    "require": {},
+    "require": {
+        "php": ">=7.4",
+        "coenjacobs/mozart": "^0.7"
+    },
     "keywords": [
         "wordpress",
         "plugin"
@@ -24,5 +27,23 @@
         "Ai_Assistant\\Admin\\": "admin/",
         "Ai_Assistant\\Public\\": "public/"
         }
+    },
+    "extra": {
+        "mozart": {
+            "dep_namespace": "Ai_Assistant\\Dependencies\\",
+            "dep_directory": "/vendor/",
+            "classmap_directory": "/classes/",
+            "classmap_prefix": "Ai_Assistant_",
+            "packages": [],
+            "excluded_packages": []
+        }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "\"vendor/bin/mozart\" compose"
+        ],
+        "post-update-cmd": [
+            "\"vendor/bin/mozart\" compose"
+        ]
     }
 }
