@@ -303,6 +303,8 @@ final class Main {
 		$main_menu = new \Ai_Assistant\Admin\Partials\Menu( $this->get_plugin_name(), $this->get_version() );
 		$this->loader->add_action( 'admin_menu', $main_menu, 'main_menu' );
 		$this->loader->add_action( 'plugin_action_links', $main_menu, 'plugin_action_links', 1000, 2 );
+		// Register settings section and fields
+		$this->loader->add_action( 'admin_init', '\Ai_Assistant\Admin\Partials\Menu', 'register_settings' );
 	}
 
 	/**

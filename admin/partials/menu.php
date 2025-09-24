@@ -68,84 +68,138 @@ class Menu {
 		);
 	}
 
-	/**
-	 * About us for the plugins
-	 */
+		/**
+		 * Settings page for AI SDK Chatbot Demo
+		 */
 	public function about() {
-		?>
-		<style>
-			.ai-assistant-container {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				height: 100vh;
-				background-color: #f7f7f7;
-			}
+		// Early bailout for permissions
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'ai-assistant' ) );
+		}
 
-			.ai-assistant-logo img {
-				max-width: 200px;
-				height: auto;
-			}
+		echo '<div class="wrap">';
+			echo '<h1>' . esc_html__( 'AI SDK Chatbot Demo Settings', 'ai-assistant' ) . '</h1>';
 
-			.ai-assistant-content {
-				text-align: center;
-				max-width: 600px;
-				margin-top: 20px;
-				padding: 20px;
-				background-color: #fff;
-				border-radius: 10px;
-				box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
-			}
+			echo '<form method="post" action="options.php">';
+				settings_fields( 'ai_assistant_settings_group' );
+				do_settings_sections( 'ai_assistant_settings' );
+				submit_button( esc_html__( 'Save Changes', 'ai-assistant' ) );
+			echo '</form>';
+		echo '</div>';
+	}
+	/**
+	 * Register settings, sections, and fields for the settings page
+	 */
+	public static function register_settings() {
+		// Early bailout for non-admin
+		if ( ! is_admin() ) {
+			return;
+		}
 
-			h2 {
-				color: #0073e6;
-				font-size: 24px;
-			}
+		register_setting(
+			'ai_assistant_settings_group',
+			'ai_assistant_settings',
+			array(
+				'sanitize_callback' => array( __CLASS__, 'sanitize_settings' ),
+			)
+		);
 
-			h3 {
-				color: #333;
-				font-size: 20px;
-			}
+		add_settings_section(
+			'ai_assistant_credentials_section',
+			__( 'Credentials', 'ai-assistant' ),
+			function () {
+				echo '<p>' . esc_html__( 'Paste your API credentials for the different providers you would like to use here.', 'ai-assistant' ) . '</p>';
+			},
+			'ai_assistant_settings'
+		);
 
-			ul {
-				list-style-type: disc;
-				padding-left: 20px;
-				text-align: left;
-			}
+		add_settings_field(
+			'ai_assistant_anthropic',
+			__( 'Anthropic', 'ai-assistant' ),
+			array( __CLASS__, 'render_text_field' ),
+			'ai_assistant_settings',
+			'ai_assistant_credentials_section',
+			array( 'id' => 'anthropic' )
+		);
+		add_settings_field(
+			'ai_assistant_google',
+			__( 'Google', 'ai-assistant' ),
+			array( __CLASS__, 'render_text_field' ),
+			'ai_assistant_settings',
+			'ai_assistant_credentials_section',
+			array( 'id' => 'google' )
+		);
+		add_settings_field(
+			'ai_assistant_openai',
+			__( 'OpenAI', 'ai-assistant' ),
+			array( __CLASS__, 'render_text_field' ),
+			'ai_assistant_settings',
+			'ai_assistant_credentials_section',
+			array( 'id' => 'openai' )
+		);
 
-			p {
-				font-size: 18px;
-			}
-		</style>
+		add_settings_section(
+			'ai_assistant_provider_section',
+			__( 'Provider Preferences', 'ai-assistant' ),
+			function () {
+				echo '<p>' . esc_html__( 'Choose the provider you would like to use for the chatbot demo. Only providers with valid API credentials can be selected.', 'ai-assistant' ) . '</p>';
+			},
+			'ai_assistant_settings'
+		);
 
-		<div class="ai-assistant-container">
+		add_settings_field(
+			'ai_assistant_current_provider',
+			__( 'Current Provider', 'ai-assistant' ),
+			array( __CLASS__, 'render_provider_dropdown' ),
+			'ai_assistant_settings',
+			'ai_assistant_provider_section'
+		);
+	}
 
-			<div class="ai-assistant-content">
-				<h2>Ai Assistant</h2>
-				<p style="text-align: left;">Welcome to WPBoilerplate, your comprehensive starting point for developing WordPress plugins with modern development practices. This boilerplate offers a structured and efficient setup, streamlining the process of creating robust and maintainable WordPress plugins.</p>
+	/**
+	 * Sanitize settings
+	 */
+	public static function sanitize_settings( $input ) {
+		$output                     = array();
+		$output['anthropic']        = isset( $input['anthropic'] ) ? sanitize_text_field( $input['anthropic'] ) : '';
+		$output['google']           = isset( $input['google'] ) ? sanitize_text_field( $input['google'] ) : '';
+		$output['openai']           = isset( $input['openai'] ) ? sanitize_text_field( $input['openai'] ) : '';
+		$output['current_provider'] = isset( $input['current_provider'] ) ? sanitize_text_field( $input['current_provider'] ) : 'none';
+		return $output;
+	}
 
-				<h3>Key Features:</h3>
-				<ul>
-					<li><strong>Modular Structure:</strong> Organized codebase that promotes clean, readable, and maintainable project architecture.</li>
+	/**
+	 * Render text field for credentials
+	 */
+	public static function render_text_field( $args ) {
+		$options = get_option( 'ai_assistant_settings' );
+		$id      = $args['id'];
+		$value   = isset( $options[ $id ] ) ? esc_attr( $options[ $id ] ) : '';
+		printf(
+			'<input type="text" id="ai_assistant_%s" name="ai_assistant_settings[%s]" value="%s" class="regular-text" />',
+			esc_attr( $id ),
+			esc_attr( $id ),
+			$value
+		);
+	}
 
-					<li><strong>Modern Development Tools:</strong> Integrates wp-script to enhance your workflow and automate tasks.</li>
-
-					<li><strong>Best Practices:</strong> Follows WordPress coding standards and best practices to ensure high-quality code.</li>
-
-					<li><strong>Customization Ready:</strong> Easily customizable to fit the specific needs of your plugin development projects.</li>
-
-					<li><strong>Plugin Update Checker:</strong> Built-in functionality to manage and check for plugin updates, ensuring your plugins stay current.</li>
-				</ul>
-
-				<h3>Documentation</h3>
-				<p>Comprehensive documentation is available to guide you through the setup process, customization options, and deployment procedures. Whether you're a seasoned developer or new to WordPress plugin development, our documentation is designed to make your development experience as smooth as possible.</p>
-
-				<h3>Contributions</h3>
-				<p>We welcome contributions from the community. Feel free to fork the repository, create issues, or submit pull requests to help us improve WPBoilerplate.</p>
-			</div>
-		</div>
-		<?php
+	/**
+	 * Render provider dropdown
+	 */
+	public static function render_provider_dropdown() {
+		$options   = get_option( 'ai_assistant_settings' );
+		$current   = isset( $options['current_provider'] ) ? $options['current_provider'] : 'none';
+		$providers = array(
+			'none'      => __( 'None', 'ai-assistant' ),
+			'anthropic' => __( 'Anthropic', 'ai-assistant' ),
+			'google'    => __( 'Google', 'ai-assistant' ),
+			'openai'    => __( 'OpenAI', 'ai-assistant' ),
+		);
+		echo '<select id="ai_assistant_current_provider" name="ai_assistant_settings[current_provider]">';
+		foreach ( $providers as $key => $label ) {
+			printf( '<option value="%s" %s>%s</option>', esc_attr( $key ), selected( $current, $key, false ), esc_html( $label ) );
+		}
+		echo '</select>';
 	}
 
 	/**
