@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "ai-assistant",
+			"path": "../../../../../.."
+		},
+		{
+			"name": "ai-experiments",
+			"path": "../../../../../../../../.."
+		}
+	],
+	"settings": {}
+}

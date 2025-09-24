@@ -25,13 +25,13 @@ defined( 'ABSPATH' ) || exit;
 class OpenAI_Text_Generation_Model extends OpenAiTextGenerationModel {
 
 	/**
-	 * Override the prepareMessagesParam method to fix the empty tool_calls issue.
+	 * Override the prepareMessagesParam method to fix the empty tool_calls issue for Responses API.
 	 *
 	 * @since 0.0.1
 	 *
 	 * @param list<Message> $messages The messages to prepare.
 	 * @param string|null   $system_instruction An optional system instruction to prepend to the messages.
-	 * @return list<array<string, mixed>> The prepared messages parameter.
+	 * @return list<array<string, mixed>> The prepared input parameter for Responses API.
 	 */
 	protected function prepareMessagesParam( array $messages, ?string $system_instruction = null ): array {
 		$messages_param = array_map(
@@ -102,6 +102,7 @@ class OpenAI_Text_Generation_Model extends OpenAiTextGenerationModel {
 			);
 		}
 
+		error_log( '[AI Assistant Custom Model] Final messages param: ' . json_encode( $messages_param ) );
 		return $messages_param;
 	}
 }
